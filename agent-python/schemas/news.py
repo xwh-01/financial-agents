@@ -20,6 +20,12 @@ class NewsItem(BaseModel):
     url: str = ""
     published_at: str = ""
 
+    provider: str = ""
+    relevance_score: float = 0
+    relevance_reasons: list[str] = Field(default_factory=list)
+    matched_tickers: list[str] = Field(default_factory=list)
+    matched_topics: list[str] = Field(default_factory=list)
+
 
 class SearchNewsResponse(BaseModel):
     items: list[NewsItem] = Field(default_factory=list)

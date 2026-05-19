@@ -1,6 +1,7 @@
 from schemas.request import AnalyzeRequest
 from schemas.trend import MarketPulseRequest, MarketPulseResponse, DailyNewsAnalysis
 from tools.news_collector import collect_latest_market_news
+from tools.news_ranker import filter_and_rank_news
 from workflows.market_impact_workflow import run_market_impact_workflow
 from agents.trend_predictor import (
     build_financial_recommendations,
@@ -10,12 +11,14 @@ from agents.trend_predictor import (
 
 
 async def run_market_pulse_workflow(request: MarketPulseRequest) -> MarketPulseResponse:
-    news_items = await collect_latest_market_news(
+    candidate_news = await collect_latest_market_news(
         limit=request.limit,
         language=request.language,
         translate_to_zh=request.translate_to_zh,
-    )
-    news_items = news_items[: request.max_items]
+)
+
+    ranked_news = filter_and_rank_news(candidate_news)
+    news_items = ranked_news[: request.max_items]
 
     analyzed_news: list[DailyNewsAnalysis] = []
     completed_results = []
