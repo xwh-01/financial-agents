@@ -49,10 +49,17 @@ class DailyBriefResponse(BaseModel):
 
 
 class MarketPulseRequest(BaseModel):
-    limit: int = 20
+    # 多抓候选新闻，提高覆盖率
+    limit: int = 50
+
+    # 当前新闻源主要按英文搜索
     language: str = "en"
-    translate_to_zh: bool = True
-    max_items: int = 12
+
+    # 不在搜索阶段翻译，否则会非常慢
+    translate_to_zh: bool = False
+
+    # 最多深度分析 5 条，避免一次请求跑太久
+    max_items: int = 5
 
 
 class FinancialRecommendation(BaseModel):
@@ -69,7 +76,19 @@ class FinancialRecommendation(BaseModel):
 
 class MarketPulseResponse(BaseModel):
     status: str
+
+    # 本次真正进入深度分析的新闻数量
     total_news: int
+
+    # 候选新闻池数量：从新闻 API 抓到并去重后的数量
+    candidate_news_count: int = 0
+
+    # 过滤排序后的新闻数量：ranker 认为值得关注的数量
+    filtered_news_count: int = 0
+
+    # 实际完成分析流程的新闻数量
+    analyzed_news_count: int = 0
+
     analyzed_news: list[DailyNewsAnalysis] = Field(default_factory=list)
     trends: list[TickerTrend] = Field(default_factory=list)
     recommendations: list[FinancialRecommendation] = Field(default_factory=list)

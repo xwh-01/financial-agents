@@ -1,16 +1,70 @@
+import re
+
 from schemas.news import NewsItem
 
 
 TICKER_KEYWORDS = {
     "NVDA": ["nvidia", "nvda", "ai chip", "gpu"],
-    "TSLA": ["tesla", "tsla", "robotaxi", "ev"],
+    "TSLA": ["tesla", "tsla", "robotaxi"],
     "AAPL": ["apple", "aapl", "iphone"],
     "MSFT": ["microsoft", "msft", "azure", "openai"],
     "GOOGL": ["google", "alphabet", "googl", "gemini"],
-    "AMZN": ["amazon", "amzn", "aws"],
+    "AMZN": ["amazon", "amzn", "amazon web services"],
     "AMD": ["amd", "advanced micro devices"],
     "AVGO": ["broadcom", "avgo"],
     "META": ["meta", "facebook", "instagram"],
+}
+
+EVENT_KEYWORDS = {
+    "macro": [
+        "fed",
+        "federal reserve",
+        "interest rate",
+        "inflation",
+        "cpi",
+        "jobs report",
+        "unemployment",
+        "treasury yields",
+        "dollar",
+    ],
+    "geopolitical": [
+        "war",
+        "conflict",
+        "sanctions",
+        "tariffs",
+        "trade war",
+        "geopolitical",
+    ],
+    "commodities": [
+        "gold",
+        "oil",
+        "crude",
+        "natural gas",
+        "commodity",
+        "opec",
+    ],
+    "policy": [
+        "regulation",
+        "antitrust",
+        "government",
+        "ban",
+        "subsidy",
+        "tax",
+    ],
+    "sector_rotation": [
+        "bank stocks",
+        "energy stocks",
+        "healthcare stocks",
+        "retail stocks",
+        "real estate stocks",
+    ],
+    "earnings": [
+        "earnings",
+        "revenue",
+        "guidance",
+        "profit",
+        "margin",
+    ],
 }
 
 TOPIC_KEYWORDS = {
@@ -54,7 +108,31 @@ BAD_TERMS = [
 ]
 
 
+def contains_keyword(text: str, keyword: str) -> bool:
+    keyword = keyword.strip().lower()
+
+    if not keyword:
+        return False
+
+    # 短 ticker / 短词必须完整单词匹配，避免 ev、aws、amd 乱命中
+    if len(keyword) <= 5 and keyword.replace(".", "").isalpha():
+        return re.search(rf"\b{re.escape(keyword)}\b", text, re.IGNORECASE) is not None
+
+    return keyword in text.lower()
+
+
 def score_news_item(item: NewsItem) -> tuple[float, list[str], list[str], list[str]]:
+
+    matched_events: list[str] = []
+
+    for event_type, keywords in EVENT_KEYWORDS.items():
+        if any(contains_keyword(text, keyword) for keyword in keywords):
+            score += 3
+            matched_events.append(event_type)
+
+    if matched_events:
+        reasons.append("matched_events=" + ",".join(matched_events))
+
     text = f"{item.title} {item.content}".lower()
 
     score = 0.0
@@ -63,7 +141,7 @@ def score_news_item(item: NewsItem) -> tuple[float, list[str], list[str], list[s
     matched_topics: list[str] = []
 
     for ticker, keywords in TICKER_KEYWORDS.items():
-        if any(keyword in text for keyword in keywords):
+        if any(contains_keyword(text, keyword) for keyword in keywords):
             score += 4
             matched_tickers.append(ticker)
 
@@ -71,19 +149,19 @@ def score_news_item(item: NewsItem) -> tuple[float, list[str], list[str], list[s
         reasons.append("matched_tickers=" + ",".join(matched_tickers))
 
     for topic, keywords in TOPIC_KEYWORDS.items():
-        if any(keyword in text for keyword in keywords):
+        if any(contains_keyword(text, keyword) for keyword in keywords):
             score += 2
             matched_topics.append(topic)
 
     if matched_topics:
         reasons.append("matched_topics=" + ",".join(matched_topics))
 
-    market_hits = [term for term in MARKET_TERMS if term in text]
+    market_hits = [term for term in MARKET_TERMS if contains_keyword(text, term)]
     if market_hits:
         score += min(4, len(market_hits))
         reasons.append("market_terms=" + ",".join(market_hits[:5]))
 
-    bad_hits = [term for term in BAD_TERMS if term in text]
+    bad_hits = [term for term in BAD_TERMS if contains_keyword(text, term)]
     if bad_hits:
         score -= 5
         reasons.append("bad_terms=" + ",".join(bad_hits[:3]))
@@ -97,7 +175,7 @@ def score_news_item(item: NewsItem) -> tuple[float, list[str], list[str], list[s
 
 def filter_and_rank_news(
     items: list[NewsItem],
-    min_score: float = 5,
+    min_score: float = 3,
 ) -> list[NewsItem]:
     ranked: list[NewsItem] = []
 

@@ -22,9 +22,6 @@ async def run_market_pulse_workflow(request: MarketPulseRequest) -> MarketPulseR
         },
     )
 
-    # 注意：这里先强制不翻译。
-    # 原因：候选新闻池阶段如果就翻译，会导致每条新闻都额外调用 LLM，非常慢。
-    # 正确流程是：先英文抓取和过滤，最后报告阶段再输出中文。
     candidate_news = await collect_latest_market_news(
         limit=request.limit,
         language=request.language,
@@ -35,15 +32,20 @@ async def run_market_pulse_workflow(request: MarketPulseRequest) -> MarketPulseR
     ranked_news = filter_and_rank_news(candidate_news)
     print("[market-pulse] ranked:", len(ranked_news))
 
-    news_items = ranked_news[: request.max_items]
+    analysis_limit = min(request.max_items, 5)
+    news_items = ranked_news[:analysis_limit]
+
+    print("[market-pulse] max_items requested:", request.max_items)
+    print("[market-pulse] analysis_limit:", analysis_limit)
     print("[market-pulse] selected:", len(news_items))
 
     if not news_items:
-        print("[market-pulse] no selected news after ranking")
-
         return MarketPulseResponse(
             status="completed",
             total_news=0,
+            candidate_news_count=len(candidate_news),
+            filtered_news_count=len(ranked_news),
+            analyzed_news_count=0,
             analyzed_news=[],
             trends=[],
             recommendations=[],
@@ -119,6 +121,9 @@ async def run_market_pulse_workflow(request: MarketPulseRequest) -> MarketPulseR
     return MarketPulseResponse(
         status="completed",
         total_news=len(news_items),
+        candidate_news_count=len(candidate_news),
+        filtered_news_count=len(ranked_news),
+        analyzed_news_count=len(analyzed_news),
         analyzed_news=analyzed_news,
         trends=trends,
         recommendations=recommendations,
