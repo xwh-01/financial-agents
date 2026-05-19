@@ -32,7 +32,9 @@ async def run_market_impact_workflow(request: AnalyzeRequest) -> WorkflowResult:
 
         return WorkflowResult(
             task_id=task_id,
-            status="completed" if compliance_result.passed else "completed_with_compliance_warning",
+            status="completed"
+            if compliance_result.passed
+            else "completed_with_compliance_warning",
             entity_result=entity_result,
             event_result=event_result,
             ticker_links=ticker_links,

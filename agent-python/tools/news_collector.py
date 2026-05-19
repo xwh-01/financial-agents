@@ -1,5 +1,6 @@
 from schemas.news import NewsItem
 from tools.news_search import search_news
+import math
 
 
 DEFAULT_MARKET_QUERIES = [
@@ -26,7 +27,7 @@ async def collect_latest_market_news(
 
     limit means candidate pool size, not final analysis size.
     """
-    per_query_limit = max(1, limit // len(DEFAULT_MARKET_QUERIES))
+    per_query_limit = max(3, math.ceil(limit / len(DEFAULT_MARKET_QUERIES)))
     all_items: list[NewsItem] = []
 
     for query in DEFAULT_MARKET_QUERIES:

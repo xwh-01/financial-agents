@@ -87,8 +87,12 @@ def _build_ticker_trend(ticker: str, results: list[WorkflowResult]) -> TickerTre
             if title:
                 source_titles.append(title)
 
-    average_score = sum(weighted_scores) / len(weighted_scores) if weighted_scores else 0.0
-    average_confidence = sum(confidence_values) / len(confidence_values) if confidence_values else 0.0
+    average_score = (
+        sum(weighted_scores) / len(weighted_scores) if weighted_scores else 0.0
+    )
+    average_confidence = (
+        sum(confidence_values) / len(confidence_values) if confidence_values else 0.0
+    )
     average_impact = sum(impact_values) / len(impact_values) if impact_values else 0.0
 
     return TickerTrend(

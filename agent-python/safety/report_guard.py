@@ -13,7 +13,9 @@ def check_report_safety(report: str) -> ComplianceResult:
     sanitized_report = report
 
     if REQUIRED_DISCLAIMER not in sanitized_report:
-        sanitized_report += "\n\n免责声明：本报告仅用于舆情事件分析与学习展示，不构成投资建议。"
+        sanitized_report += (
+            "\n\n免责声明：本报告仅用于舆情事件分析与学习展示，不构成投资建议。"
+        )
 
     if violations:
         sanitized_report += "\n\n合规提示：报告中检测到可能构成投资建议或收益承诺的表达，请重新生成或人工复核。"

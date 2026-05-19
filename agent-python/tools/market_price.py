@@ -83,15 +83,10 @@ def normalize_market_data(data: dict) -> list[dict]:
 
     for date, item in raw_series.items():
         close = (
-            item.get("5. adjusted close")
-            or item.get("4. close")
-            or item.get("close")
+            item.get("5. adjusted close") or item.get("4. close") or item.get("close")
         )
         volume = (
-            item.get("6. volume")
-            or item.get("5. volume")
-            or item.get("volume")
-            or 0
+            item.get("6. volume") or item.get("5. volume") or item.get("volume") or 0
         )
 
         if close is None:

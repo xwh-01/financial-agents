@@ -8,9 +8,7 @@ async def analyze_market(
     published_at: str,
 ) -> MarketMetrics:
     tickers = _dedupe(
-        ticker_links.direct_tickers
-        + ticker_links.related_tickers
-        + ticker_links.etfs
+        ticker_links.direct_tickers + ticker_links.related_tickers + ticker_links.etfs
     )
 
     metrics: dict[str, MarketMetric] = {}

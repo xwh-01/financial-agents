@@ -33,7 +33,9 @@ def link_known_entities(entity_result: EntityResult) -> TickerLinks:
         direct.append("MSFT")
         related.extend(["NVDA", "GOOG", "QQQ"])
         etfs.extend(["QQQ"])
-        reasons.append("识别到 Sam Altman / OpenAI / Microsoft，关联 AI 基础设施与云计算。")
+        reasons.append(
+            "识别到 Sam Altman / OpenAI / Microsoft，关联 AI 基础设施与云计算。"
+        )
 
     return TickerLinks(
         direct_tickers=_dedupe(direct),

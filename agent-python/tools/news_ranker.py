@@ -22,15 +22,35 @@ TOPIC_KEYWORDS = {
 }
 
 MARKET_TERMS = [
-    "stock", "shares", "market", "investors", "earnings",
-    "revenue", "guidance", "profit", "loss", "forecast",
-    "upgrade", "downgrade", "price target", "fed",
-    "inflation", "interest rate", "treasury", "gold", "oil",
+    "stock",
+    "shares",
+    "market",
+    "investors",
+    "earnings",
+    "revenue",
+    "guidance",
+    "profit",
+    "loss",
+    "forecast",
+    "upgrade",
+    "downgrade",
+    "price target",
+    "fed",
+    "inflation",
+    "interest rate",
+    "treasury",
+    "gold",
+    "oil",
 ]
 
 BAD_TERMS = [
-    "sports", "movie", "celebrity", "recipe",
-    "travel", "shopping", "game review",
+    "sports",
+    "movie",
+    "celebrity",
+    "recipe",
+    "travel",
+    "shopping",
+    "game review",
 ]
 
 
