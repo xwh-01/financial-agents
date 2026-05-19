@@ -121,8 +121,15 @@ def contains_keyword(text: str, keyword: str) -> bool:
     return keyword in text.lower()
 
 
-def score_news_item(item: NewsItem) -> tuple[float, list[str], list[str], list[str]]:
+def score_news_item(
+    item: NewsItem,
+) -> tuple[float, list[str], list[str], list[str], list[str]]:
+    text = f"{item.title} {item.content}".lower()
 
+    score = 0.0
+    reasons: list[str] = []
+    matched_tickers: list[str] = []
+    matched_topics: list[str] = []
     matched_events: list[str] = []
 
     for event_type, keywords in EVENT_KEYWORDS.items():
@@ -132,13 +139,6 @@ def score_news_item(item: NewsItem) -> tuple[float, list[str], list[str], list[s
 
     if matched_events:
         reasons.append("matched_events=" + ",".join(matched_events))
-
-    text = f"{item.title} {item.content}".lower()
-
-    score = 0.0
-    reasons: list[str] = []
-    matched_tickers: list[str] = []
-    matched_topics: list[str] = []
 
     for ticker, keywords in TICKER_KEYWORDS.items():
         if any(contains_keyword(text, keyword) for keyword in keywords):
@@ -170,7 +170,7 @@ def score_news_item(item: NewsItem) -> tuple[float, list[str], list[str], list[s
         score -= 1
         reasons.append("content_too_short")
 
-    return score, reasons, matched_tickers, matched_topics
+    return score, reasons, matched_tickers, matched_topics, matched_events
 
 
 def filter_and_rank_news(
@@ -180,15 +180,16 @@ def filter_and_rank_news(
     ranked: list[NewsItem] = []
 
     for item in items:
-        score, reasons, tickers, topics = score_news_item(item)
-
-        if score < min_score:
-            continue
+        score, reasons, tickers, topics, events = score_news_item(item)
 
         item.relevance_score = score
         item.relevance_reasons = reasons
         item.matched_tickers = tickers
         item.matched_topics = topics
+        item.matched_events = events
+
+        if score < min_score:
+            continue
 
         ranked.append(item)
 

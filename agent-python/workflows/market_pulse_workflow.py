@@ -1,3 +1,5 @@
+import asyncio
+
 from schemas.request import AnalyzeRequest
 from schemas.trend import MarketPulseRequest, MarketPulseResponse, DailyNewsAnalysis
 from tools.news_collector import collect_latest_market_news
@@ -79,7 +81,10 @@ async def run_market_pulse_workflow(request: MarketPulseRequest) -> MarketPulseR
                 published_at=item.published_at,
             )
 
-            analysis_result = await run_market_impact_workflow(analyze_request)
+            analysis_result = await asyncio.wait_for(
+                run_market_impact_workflow(analyze_request),
+                timeout=90,
+            )
 
             print(f"[market-pulse] analyzed {idx}/{len(news_items)}")
 
@@ -97,13 +102,18 @@ async def run_market_pulse_workflow(request: MarketPulseRequest) -> MarketPulseR
 
         except Exception as exc:
             print(f"[market-pulse] analyze failed {idx}/{len(news_items)}:", repr(exc))
+            error_message = (
+                "analysis timed out after 90 seconds"
+                if isinstance(exc, asyncio.TimeoutError)
+                else str(exc)
+            )
 
             analyzed_news.append(
                 DailyNewsAnalysis(
                     news=item,
                     analysis_result=None,
                     status="failed",
-                    error_message=str(exc),
+                    error_message=error_message,
                 )
             )
 
