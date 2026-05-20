@@ -1,0 +1,56 @@
+[
+  {
+    "company": "NVIDIA",
+    "ticker": "NVDA",
+    "rss_feeds": [],
+    "search_queries": [
+      "NVIDIA",
+      "NVDA",
+      "NVIDIA earnings",
+      "NVIDIA AI chips"
+    ]
+  },
+  {
+    "company": "AMD",
+    "ticker": "AMD",
+    "rss_feeds": [],
+    "search_queries": [
+      "AMD",
+      "AMD earnings",
+      "AMD AI chips"
+    ]
+  },
+  {
+    "company": "Apple",
+    "ticker": "AAPL",
+    "rss_feeds": [],
+    "search_queries": [
+      "Apple",
+      "AAPL",
+      "iPhone sales",
+      "Apple earnings"
+    ]
+  },
+  {
+    "company": "Microsoft",
+    "ticker": "MSFT",
+    "rss_feeds": [],
+    "search_queries": [
+      "Microsoft",
+      "MSFT",
+      "Azure AI",
+      "Microsoft earnings"
+    ]
+  },
+  {
+    "company": "Tesla",
+    "ticker": "TSLA",
+    "rss_feeds": [],
+    "search_queries": [
+      "Tesla",
+      "TSLA",
+      "Tesla deliveries",
+      "Tesla earnings"
+    ]
+  }
+]

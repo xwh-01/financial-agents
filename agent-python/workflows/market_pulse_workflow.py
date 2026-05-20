@@ -2,7 +2,7 @@ import asyncio
 
 from schemas.request import AnalyzeRequest
 from schemas.trend import MarketPulseRequest, MarketPulseResponse, DailyNewsAnalysis
-from tools.news_collector import collect_latest_market_news
+from tools.source_aggregator import collect_company_market_news
 from tools.news_ranker import filter_and_rank_news
 from workflows.market_impact_workflow import run_market_impact_workflow
 from agents.trend_predictor import (
@@ -24,7 +24,7 @@ async def run_market_pulse_workflow(request: MarketPulseRequest) -> MarketPulseR
         },
     )
 
-    candidate_news = await collect_latest_market_news(
+    candidate_news = await collect_company_market_news(
         limit=request.limit,
         language=request.language,
         translate_to_zh=False,

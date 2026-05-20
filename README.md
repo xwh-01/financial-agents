@@ -18,6 +18,7 @@ Financial Agents 是一个财经新闻研究参考项目。项目接入真实新
 - HTTPX
 - LangGraph
 - SQLite
+- RSS / feedparser
 - News API
 - LLM API
 - HTML
@@ -30,6 +31,7 @@ Financial Agents 是一个财经新闻研究参考项目。项目接入真实新
 ├── agent-python/
 │   ├── agents/              # 单步 Agent：实体识别、事件分析、风险检查、报告生成等
 │   ├── app/                 # FastAPI 应用入口和路由
+│   ├── config/              # 公司信息源配置
 │   ├── data/                # SQLite 数据库文件，运行后自动生成
 │   ├── schemas/             # 请求、响应和工作流数据模型
 │   ├── storage/             # 历史报告持久化
@@ -78,6 +80,14 @@ POST /agent/market-pulse
 }
 ```
 
+curl 示例：
+
+```bash
+curl -X POST http://127.0.0.1:8000/agent/market-pulse ^
+  -H "Content-Type: application/json" ^
+  -d "{\"limit\":50,\"language\":\"en\",\"translate_to_zh\":false,\"max_items\":5}"
+```
+
 ### LangGraph Market Pulse
 
 ```http
@@ -108,6 +118,57 @@ GET /api/reports/1
 ```
 
 如果报告不存在，会返回 `404`。
+
+## 公司维度信息源
+
+Market Pulse 现在使用组合信息源补充公司相关新闻：
+
+```text
+News API 主路径 + 公司 RSS + Google News RSS fallback
+```
+
+第一版内置 5 个公司配置：
+
+- NVIDIA / NVDA
+- AMD / AMD
+- Apple / AAPL
+- Microsoft / MSFT
+- Tesla / TSLA
+
+配置文件位置：
+
+```text
+agent-python/config/company_feeds.json
+```
+
+配置示例：
+
+```json
+[
+  {
+    "company": "NVIDIA",
+    "ticker": "NVDA",
+    "rss_feeds": [],
+    "search_queries": [
+      "NVIDIA",
+      "NVDA",
+      "NVIDIA earnings",
+      "NVIDIA AI chips"
+    ]
+  }
+]
+```
+
+`rss_feeds` 可以后续补充公司官网或投资者关系 RSS；当公司 RSS 为空或失败时，系统会使用 Google News RSS 搜索型 fallback 补充相关新闻。单个 RSS 源失败会被跳过，不会中断整个 Market Pulse 流程。
+
+相关环境变量：
+
+```text
+ENABLE_COMPANY_RSS=true
+COMPANY_FEEDS_PATH=config/company_feeds.json
+RSS_TIMEOUT_SECONDS=15
+MIN_NEWS_COUNT=10
+```
 
 ## LangGraph 工作流
 
@@ -151,6 +212,7 @@ created_at TEXT NOT NULL
 
 - 接入真实新闻源，先构建候选新闻池，再进行相关性排序。
 - 支持单条新闻影响分析和批量 Market Pulse 分析。
+- 支持公司维度 RSS 与 Google News RSS fallback，补充重点公司相关新闻。
 - 使用 LangGraph 表达 Market Pulse 节点流转和风险分支。
 - 对高风险结果保留额外复核节点，便于展示 Agent 工作流设计。
 - 支持 SQLite 保存历史报告，并提供查询接口。

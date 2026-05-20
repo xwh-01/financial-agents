@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     news_base_url: str = ""
     news_api_key: str = ""
 
+    company_feeds_path: str = "config/company_feeds.json"
+    enable_company_rss: bool = True
+    rss_timeout_seconds: int = 15
+    min_news_count: int = 10
+
     market_base_url: str = ""
     market_api_key: str = ""
 
