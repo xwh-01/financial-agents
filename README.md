@@ -2,13 +2,13 @@
 
 ## 项目简介
 
-Financial Agents 是一个用于财经新闻研究参考的 Agent 项目。项目接入真实新闻源，根据财经时事、宏观事件、行业新闻和公司动态，分析新闻可能带来的市场影响，并输出趋势观察、风险提示和结构化研究报告。
+Financial Agents 是一个财经新闻研究参考项目。项目接入真实新闻源，根据财经时事、宏观事件、行业新闻和公司动态，分析新闻可能带来的市场影响，并输出趋势观察、风险提示和结构化报告。
 
-本项目仅用于学习和研究参考，不构成投资建议。
+本项目聚焦“研究参考”和“风险提示”，不做自动荐股，不承诺收益，也不构成投资建议。
 
 ## 核心流程
 
-新闻采集 → 相关性排序 → 事件识别 → 市场影响分析 → 风险检查 → 报告生成
+新闻采集 → 相关性排序 → 事件识别 → 市场影响分析 → 风险检查 → 报告生成 → 历史报告保存
 
 ## 技术栈
 
@@ -16,6 +16,8 @@ Financial Agents 是一个用于财经新闻研究参考的 Agent 项目。项�
 - FastAPI
 - Pydantic
 - HTTPX
+- LangGraph
+- SQLite
 - News API
 - LLM API
 - HTML
@@ -28,9 +30,11 @@ Financial Agents 是一个用于财经新闻研究参考的 Agent 项目。项�
 ├── agent-python/
 │   ├── agents/              # 单步 Agent：实体识别、事件分析、风险检查、报告生成等
 │   ├── app/                 # FastAPI 应用入口和路由
+│   ├── data/                # SQLite 数据库文件，运行后自动生成
 │   ├── schemas/             # 请求、响应和工作流数据模型
+│   ├── storage/             # 历史报告持久化
 │   ├── tools/               # 新闻采集、新闻排序、市场数据等工具
-│   └── workflows/           # 单条新闻分析和 Market Pulse 工作流
+│   └── workflows/           # 单条新闻分析、Market Pulse、LangGraph 工作流
 ├── frontend/                # 简单前端页面
 └── README.md
 ```
@@ -45,17 +49,25 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-启动后可访问本地 FastAPI 服务，默认地址通常为：
+启动后默认访问：
 
 ```text
 http://127.0.0.1:8000
 ```
 
+启动时会自动初始化 SQLite 数据库：
+
+```text
+agent-python/data/reports.db
+```
+
 ## 接口示例
 
-### POST /agent/market-pulse
+### 旧版 Market Pulse
 
-请求示例：
+```http
+POST /agent/market-pulse
+```
 
 ```json
 {
@@ -66,15 +78,83 @@ http://127.0.0.1:8000
 }
 ```
 
-响应会包含候选新闻数量、排序后新闻数量、实际分析新闻数量、趋势观察、风险提示和报告内容。
+### LangGraph Market Pulse
+
+```http
+POST /api/agent/market-pulse/langgraph
+```
+
+```json
+{
+  "query": "technology stocks and gold",
+  "max_items": 5
+}
+```
+
+该接口会执行 LangGraph 工作流，并将最终报告保存到 SQLite。返回结果中会包含 `report_id`。
+
+### 查询历史报告
+
+查询最近 20 条报告：
+
+```http
+GET /api/reports
+```
+
+查询单条报告详情：
+
+```http
+GET /api/reports/1
+```
+
+如果报告不存在，会返回 `404`。
+
+## LangGraph 工作流
+
+```text
+START
+-> collect_news
+-> rank_news
+-> analyze_items
+-> risk_route
+   -> risk_review -> generate_report  # 整体风险等级为 high
+   -> generate_report                 # 其他情况
+-> END
+```
+
+节点说明：
+
+- `collect_news`：复用真实新闻采集逻辑。
+- `rank_news`：复用新闻相关性排序逻辑。
+- `analyze_items`：复用单条财经新闻影响分析能力。
+- `risk_route`：根据整体风险等级做条件路由。
+- `risk_review`：复用已有风险和合规结果做高风险复核。
+- `generate_report`：生成兼容旧 Market Pulse 风格的结构化结果。
+
+## 历史报告存储
+
+SQLite 表名为 `reports`，核心字段包括：
+
+```sql
+id INTEGER PRIMARY KEY AUTOINCREMENT
+query TEXT NOT NULL
+news_count INTEGER NOT NULL DEFAULT 0
+risk_level TEXT NOT NULL DEFAULT 'unknown'
+summary TEXT NOT NULL DEFAULT ''
+report_json TEXT NOT NULL
+created_at TEXT NOT NULL
+```
+
+完整报告以 JSON 字符串保存到 `report_json`，中文内容使用 `ensure_ascii=False` 保存，便于查看和调试。
 
 ## 项目亮点
 
 - 接入真实新闻源，先构建候选新闻池，再进行相关性排序。
-- 面向财经时事、宏观事件、行业新闻和公司动态做分层分析。
-- 对单条新闻执行实体识别、事件识别、市场影响分析、风险检查和报告生成。
-- Market Pulse 工作流保留候选数量、过滤数量和实际分析数量，便于展示分析过程。
-- 报告措辞聚焦趋势观察、风险提示和研究参考，避免将结果包装成自动荐股系统。
+- 支持单条新闻影响分析和批量 Market Pulse 分析。
+- 使用 LangGraph 表达 Market Pulse 节点流转和风险分支。
+- 对高风险结果保留额外复核节点，便于展示 Agent 工作流设计。
+- 支持 SQLite 保存历史报告，并提供查询接口。
+- 报告措辞聚焦趋势观察、风险提示和研究参考，避免包装成自动荐股系统。
 
 ## 免责声明
 

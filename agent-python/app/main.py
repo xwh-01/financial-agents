@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routes import router
+from storage.report_store import init_db
 
 
 app = FastAPI(
@@ -19,3 +20,8 @@ app.add_middleware(
 )
 
 app.include_router(router)
+
+
+@app.on_event("startup")
+def startup() -> None:
+    init_db()

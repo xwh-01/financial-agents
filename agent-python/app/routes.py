@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from schemas.request import AnalyzeRequest
 from schemas.news import (
@@ -18,10 +19,17 @@ from schemas.trend import (
 from workflows.market_impact_workflow import run_market_impact_workflow
 from workflows.daily_brief_workflow import run_daily_brief_workflow
 from workflows.market_pulse_workflow import run_market_pulse_workflow
+from workflows.langgraph_market_workflow import run_langgraph_market_pulse
+from storage.report_store import get_report, list_reports
 from tools.news_search import search_news
 
 
 router = APIRouter()
+
+
+class LangGraphMarketPulseRequest(BaseModel):
+    query: str
+    max_items: int = 5
 
 
 @router.get("/healthz")
@@ -106,3 +114,30 @@ async def daily_brief_route(request: DailyBriefRequest):
 @router.post("/agent/market-pulse", response_model=MarketPulseResponse)
 async def market_pulse_route(request: MarketPulseRequest):
     return await run_market_pulse_workflow(request)
+
+
+@router.post("/api/agent/market-pulse/langgraph")
+async def langgraph_market_pulse_route(request: LangGraphMarketPulseRequest):
+    result = await run_langgraph_market_pulse(
+        query=request.query,
+        max_items=request.max_items,
+    )
+
+    return JSONResponse(
+        content=result,
+        media_type="application/json; charset=utf-8",
+    )
+
+
+@router.get("/api/reports")
+async def reports_route():
+    return list_reports(limit=20)
+
+
+@router.get("/api/reports/{report_id}")
+async def report_detail_route(report_id: int):
+    report = get_report(report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    return report
