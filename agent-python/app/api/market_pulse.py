@@ -2,7 +2,6 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from clients.news_client import search_news
 from market_pulse.schemas import (
     AnalyzeRequest,
     BatchAnalyzeNewsRequest,
@@ -11,15 +10,16 @@ from market_pulse.schemas import (
     DailyBriefResponse,
     MarketPulseRequest,
     MarketPulseResponse,
-    NewsAnalysisItem,
     SearchNewsRequest,
     SearchNewsResponse,
 )
 from market_pulse.service import (
+    run_batch_news_analysis,
     run_daily_brief,
     run_langgraph_market_pulse,
     run_market_pulse,
     run_single_news_analysis,
+    search_market_news,
 )
 
 
@@ -43,61 +43,13 @@ async def analyze(request: AnalyzeRequest):
 
 @router.post("/agent/search-news", response_model=SearchNewsResponse)
 async def search_news_route(request: SearchNewsRequest):
-    items = await search_news(
-        query=request.query,
-        limit=request.limit,
-        language=request.language,
-        translate_to_zh=request.translate_to_zh,
-    )
+    items = await search_market_news(request)
     return SearchNewsResponse(items=items)
 
 
 @router.post("/agent/batch-analyze-news", response_model=BatchAnalyzeNewsResponse)
 async def batch_analyze_news_route(request: BatchAnalyzeNewsRequest):
-    items = await search_news(
-        query=request.query,
-        limit=request.limit,
-        language=request.language,
-        translate_to_zh=request.translate_to_zh,
-    )
-
-    results: list[NewsAnalysisItem] = []
-
-    for item in items:
-        try:
-            analyze_request = AnalyzeRequest(
-                title=item.title,
-                content=item.content,
-                source=item.source or "news",
-                published_at=item.published_at,
-            )
-
-            analysis_result = await run_single_news_analysis(analyze_request)
-
-            results.append(
-                NewsAnalysisItem(
-                    news=item,
-                    analysis_result=analysis_result,
-                    status="completed",
-                    error_message=None,
-                )
-            )
-
-        except Exception as exc:
-            results.append(
-                NewsAnalysisItem(
-                    news=item,
-                    analysis_result=None,
-                    status="failed",
-                    error_message=str(exc),
-                )
-            )
-
-    return BatchAnalyzeNewsResponse(
-        query=request.query,
-        total=len(results),
-        results=results,
-    )
+    return await run_batch_news_analysis(request)
 
 
 @router.post("/agent/daily-brief", response_model=DailyBriefResponse)

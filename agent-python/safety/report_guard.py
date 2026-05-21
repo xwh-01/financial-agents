@@ -1,4 +1,4 @@
-from schemas.compliance import ComplianceResult
+from market_pulse.schemas import ComplianceResult
 from safety.forbidden_phrases import FORBIDDEN_PHRASES
 from safety.policy import REQUIRED_DISCLAIMER
 

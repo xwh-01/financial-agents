@@ -2,8 +2,8 @@ import httpx
 import math
 
 from app.config import settings
-from tools.translator import translate_to_chinese
 from app.errors import ExternalServiceNotConfigured, ExternalServiceError
+from clients.llm_client import chat_completion
 from market_pulse.schemas import NewsItem
 
 
@@ -29,6 +29,19 @@ DEFAULT_MARKET_QUERIES = [
     "semiconductor stocks market news",
     "real estate stocks interest rates",
 ]
+
+
+async def translate_to_chinese(text: str) -> str:
+    if not text.strip():
+        return ""
+
+    system_prompt = "You are a professional financial news translator."
+    user_prompt = (
+        "Translate the following financial news text into concise Simplified Chinese. "
+        "Keep company names and stock tickers unchanged.\n\n"
+        f"{text}"
+    )
+    return await chat_completion(system_prompt, user_prompt)
 
 
 async def search_news(

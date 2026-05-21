@@ -50,12 +50,9 @@ save_report
 Return Report
 ```
 
-旧版 workflow 会继续保留，用于兼容和子能力复用：
+当前代码已经收敛到最终目录结构：`app/` 是 API 层，`market_pulse/` 是核心业务域，`clients/` 负责真实外部服务访问，`storage/` 负责底层 SQLite 存储，`safety/` 负责合规检查。旧 `agents/`、`workflows/`、`tools/`、`schemas/` 目录已删除。
 
-- `agent-python/workflows/market_impact_workflow.py`：单条新闻分析子流程。
-- `agent-python/workflows/market_pulse_workflow.py`：旧版普通函数 Market Pulse 流程。
-
-`agent-python/agents/`、`agent-python/tools/`、`agent-python/workflows/` 暂时保留为兼容层；新代码优先使用 `market_pulse/` 和 `clients/`。`market_pulse/analyzers/` 中的模块不是独立乱跑的多个 Agent，而是实体识别、事件分析、风险检查、报告生成等分析能力模块；这些能力由主 workflow 统一编排。
+`market_pulse/analyzers/` 中的模块不是独立乱跑的多个 Agent，而是实体识别、事件分析、风险检查、报告生成等分析能力模块；这些能力由 `market_pulse/graph.py` 统一编排。
 
 ## 技术栈
 
@@ -84,10 +81,7 @@ Return Report
 │   ├── data/                # SQLite 数据库文件，运行后自动生成
 │   ├── storage/             # 历史报告持久化
 │   ├── safety/              # 报告安全与合规检查
-│   ├── schemas/             # 兼容保留：原始 Pydantic 模型
-│   ├── agents/              # 兼容保留：re-export 到 market_pulse/analyzers
-│   ├── tools/               # 兼容保留：re-export 到 clients / rankers
-│   └── workflows/           # 兼容保留：re-export 或调用新领域层
+│   └── docs/                # 主链路说明
 ├── frontend/                # 简单前端页面
 └── README.md
 ```
@@ -243,7 +237,7 @@ START
 - `risk_route`：根据整体风险等级做条件路由。
 - `risk_review`：复用已有风险和合规结果做高风险复核。
 - `generate_report`：生成兼容旧 Market Pulse 风格的结构化结果。
-- `save_report`：保存历史报告，并把 `report_id` 附加到返回结果。
+- `repository`：保存历史报告，并把 `report_id` 附加到返回结果。
 
 代码位置：
 
@@ -252,8 +246,11 @@ START
 - `agent-python/market_pulse/graph.py`：LangGraph 主流程编排。
 - `agent-python/market_pulse/nodes/`：LangGraph 节点实现。
 - `agent-python/market_pulse/analyzers/`：分析能力模块。
+- `agent-python/market_pulse/rankers/`：业务排序策略。
 - `agent-python/clients/`：真实外部服务客户端。
 - `agent-python/market_pulse/repository.py`：报告持久化入口。
+- `agent-python/storage/report_store.py`：SQLite 底层存储实现。
+- `agent-python/safety/report_guard.py`：报告合规检查。
 
 ## 历史报告存储
 
