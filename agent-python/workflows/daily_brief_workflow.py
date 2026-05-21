@@ -1,8 +1,17 @@
-from schemas.request import AnalyzeRequest
-from schemas.trend import DailyBriefRequest, DailyBriefResponse, DailyNewsAnalysis
-from tools.news_search import search_news
-from workflows.market_impact_workflow import run_market_impact_workflow
-from agents.trend_predictor import build_daily_trend_report, predict_ticker_trends
+# Legacy compatibility module. New code should use market_pulse/...
+
+from clients.news_client import search_news
+from market_pulse.analyzers.single_news_analysis import run_single_news_analysis
+from market_pulse.analyzers.trend_predictor import (
+    build_daily_trend_report,
+    predict_ticker_trends,
+)
+from market_pulse.schemas import (
+    AnalyzeRequest,
+    DailyBriefRequest,
+    DailyBriefResponse,
+    DailyNewsAnalysis,
+)
 
 
 async def run_daily_brief_workflow(request: DailyBriefRequest) -> DailyBriefResponse:
@@ -49,7 +58,7 @@ async def run_daily_brief_workflow(request: DailyBriefRequest) -> DailyBriefResp
                 source=item.source or "news",
                 published_at=item.published_at,
             )
-            analysis_result = await run_market_impact_workflow(analyze_request)
+            analysis_result = await run_single_news_analysis(analyze_request)
             analyzed_news.append(
                 DailyNewsAnalysis(
                     news=item,

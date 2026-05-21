@@ -21,7 +21,7 @@ POST /api/agent/market-pulse/langgraph
 当前推荐主流程文件是：
 
 ```text
-agent-python/workflows/langgraph_market_workflow.py
+agent-python/market_pulse/graph.py
 ```
 
 主链路如下：
@@ -31,7 +31,9 @@ User Query
   ↓
 FastAPI Route
   ↓
-LangGraph Market Pulse Workflow
+market_pulse/service.py
+  ↓
+market_pulse/graph.py
   ↓
 collect_news
   ↓
@@ -53,7 +55,7 @@ Return Report
 - `agent-python/workflows/market_impact_workflow.py`：单条新闻分析子流程。
 - `agent-python/workflows/market_pulse_workflow.py`：旧版普通函数 Market Pulse 流程。
 
-`agent-python/agents/` 目录中的模块不是独立乱跑的多个 Agent，而是实体识别、事件分析、风险检查、报告生成等分析能力模块；这些能力由主 workflow 统一编排。
+`agent-python/agents/`、`agent-python/tools/`、`agent-python/workflows/` 暂时保留为兼容层；新代码优先使用 `market_pulse/` 和 `clients/`。`market_pulse/analyzers/` 中的模块不是独立乱跑的多个 Agent，而是实体识别、事件分析、风险检查、报告生成等分析能力模块；这些能力由主 workflow 统一编排。
 
 ## 技术栈
 
@@ -74,14 +76,18 @@ Return Report
 ```text
 .
 ├── agent-python/
-│   ├── agents/              # 单步 Agent：实体识别、事件分析、风险检查、报告生成等
-│   ├── app/                 # FastAPI 应用入口和路由
+│   ├── app/                 # FastAPI 应用入口、配置、错误和 API router
+│   │   └── api/             # health、Market Pulse、reports 路由
+│   ├── market_pulse/        # Market Pulse 业务域：service、graph、nodes、analyzers
+│   ├── clients/             # LLM、新闻、RSS、市场数据等外部服务客户端
 │   ├── config/              # 公司信息源配置
 │   ├── data/                # SQLite 数据库文件，运行后自动生成
-│   ├── schemas/             # 请求、响应和工作流数据模型
 │   ├── storage/             # 历史报告持久化
-│   ├── tools/               # 新闻采集、新闻排序、市场数据等工具
-│   └── workflows/           # 单条新闻分析、Market Pulse、LangGraph 工作流
+│   ├── safety/              # 报告安全与合规检查
+│   ├── schemas/             # 兼容保留：原始 Pydantic 模型
+│   ├── agents/              # 兼容保留：re-export 到 market_pulse/analyzers
+│   ├── tools/               # 兼容保留：re-export 到 clients / rankers
+│   └── workflows/           # 兼容保留：re-export 或调用新领域层
 ├── frontend/                # 简单前端页面
 └── README.md
 ```
@@ -238,6 +244,16 @@ START
 - `risk_review`：复用已有风险和合规结果做高风险复核。
 - `generate_report`：生成兼容旧 Market Pulse 风格的结构化结果。
 - `save_report`：保存历史报告，并把 `report_id` 附加到返回结果。
+
+代码位置：
+
+- `agent-python/app/api/market_pulse.py`：市场新闻分析相关 API。
+- `agent-python/market_pulse/service.py`：API 调用入口。
+- `agent-python/market_pulse/graph.py`：LangGraph 主流程编排。
+- `agent-python/market_pulse/nodes/`：LangGraph 节点实现。
+- `agent-python/market_pulse/analyzers/`：分析能力模块。
+- `agent-python/clients/`：真实外部服务客户端。
+- `agent-python/market_pulse/repository.py`：报告持久化入口。
 
 ## 历史报告存储
 

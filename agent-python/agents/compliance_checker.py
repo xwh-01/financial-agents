@@ -1,7 +1,5 @@
-from schemas.report import ReportResult
-from schemas.compliance import ComplianceResult
-from safety.report_guard import check_report_safety
+# Legacy compatibility module. New code should use market_pulse.analyzers.
 
+from market_pulse.analyzers.compliance_checker import check_compliance
 
-def check_compliance(report_result: ReportResult) -> ComplianceResult:
-    return check_report_safety(report_result.content)
+__all__ = ["check_compliance"]

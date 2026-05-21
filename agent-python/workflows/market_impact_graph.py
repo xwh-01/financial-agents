@@ -1,6 +1,8 @@
 import uuid
 from typing import Any, TypedDict
 
+# Legacy compatibility module. New code should use market_pulse/...
+
 from langgraph.graph import END, START, StateGraph
 
 from schemas.request import AnalyzeRequest

@@ -1,15 +1,17 @@
 import asyncio
 
-from schemas.request import AnalyzeRequest
-from schemas.trend import MarketPulseRequest, MarketPulseResponse, DailyNewsAnalysis
-from tools.source_aggregator import collect_company_market_news
-from tools.news_ranker import filter_and_rank_news
-from workflows.market_impact_workflow import run_market_impact_workflow
-from agents.trend_predictor import (
+# Legacy compatibility module. New code should use market_pulse/...
+
+from clients.rss_client import collect_company_market_news
+from market_pulse.analyzers.single_news_analysis import run_single_news_analysis
+from market_pulse.analyzers.trend_predictor import (
     build_financial_recommendations,
     build_market_pulse_report,
     predict_ticker_trends,
 )
+from market_pulse.rankers.news_ranker import filter_and_rank_news
+from market_pulse.schemas import AnalyzeRequest
+from market_pulse.schemas import DailyNewsAnalysis, MarketPulseRequest, MarketPulseResponse
 
 
 async def run_market_pulse_workflow(request: MarketPulseRequest) -> MarketPulseResponse:
@@ -82,7 +84,7 @@ async def run_market_pulse_workflow(request: MarketPulseRequest) -> MarketPulseR
             )
 
             analysis_result = await asyncio.wait_for(
-                run_market_impact_workflow(analyze_request),
+                run_single_news_analysis(analyze_request),
                 timeout=90,
             )
 

@@ -1,29 +1,26 @@
-# Legacy compatibility module. app.main registers routers from app/api now.
-
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from schemas.request import AnalyzeRequest
-from schemas.news import (
-    SearchNewsRequest,
-    SearchNewsResponse,
+from clients.news_client import search_news
+from market_pulse.schemas import (
+    AnalyzeRequest,
     BatchAnalyzeNewsRequest,
     BatchAnalyzeNewsResponse,
-    NewsAnalysisItem,
-)
-from schemas.trend import (
     DailyBriefRequest,
     DailyBriefResponse,
     MarketPulseRequest,
     MarketPulseResponse,
+    NewsAnalysisItem,
+    SearchNewsRequest,
+    SearchNewsResponse,
 )
-from workflows.market_impact_workflow import run_market_impact_workflow
-from workflows.daily_brief_workflow import run_daily_brief_workflow
-from workflows.market_pulse_workflow import run_market_pulse_workflow
-from workflows.langgraph_market_workflow import run_langgraph_market_pulse
-from storage.report_store import get_report, list_reports
-from tools.news_search import search_news
+from market_pulse.service import (
+    run_daily_brief,
+    run_langgraph_market_pulse,
+    run_market_pulse,
+    run_single_news_analysis,
+)
 
 
 router = APIRouter()
@@ -34,14 +31,9 @@ class LangGraphMarketPulseRequest(BaseModel):
     max_items: int = 5
 
 
-@router.get("/healthz")
-def healthz():
-    return {"status": "ok"}
-
-
 @router.post("/agent/analyze")
 async def analyze(request: AnalyzeRequest):
-    result = await run_market_impact_workflow(request)
+    result = await run_single_news_analysis(request)
 
     return JSONResponse(
         content=result.model_dump(),
@@ -80,7 +72,7 @@ async def batch_analyze_news_route(request: BatchAnalyzeNewsRequest):
                 published_at=item.published_at,
             )
 
-            analysis_result = await run_market_impact_workflow(analyze_request)
+            analysis_result = await run_single_news_analysis(analyze_request)
 
             results.append(
                 NewsAnalysisItem(
@@ -110,12 +102,12 @@ async def batch_analyze_news_route(request: BatchAnalyzeNewsRequest):
 
 @router.post("/agent/daily-brief", response_model=DailyBriefResponse)
 async def daily_brief_route(request: DailyBriefRequest):
-    return await run_daily_brief_workflow(request)
+    return await run_daily_brief(request)
 
 
 @router.post("/agent/market-pulse", response_model=MarketPulseResponse)
 async def market_pulse_route(request: MarketPulseRequest):
-    return await run_market_pulse_workflow(request)
+    return await run_market_pulse(request)
 
 
 # Current recommended Market Pulse main entry.
@@ -132,17 +124,3 @@ async def langgraph_market_pulse_route(request: LangGraphMarketPulseRequest):
         content=result,
         media_type="application/json; charset=utf-8",
     )
-
-
-@router.get("/api/reports")
-async def reports_route():
-    return list_reports(limit=20)
-
-
-@router.get("/api/reports/{report_id}")
-async def report_detail_route(report_id: int):
-    report = get_report(report_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="Report not found")
-
-    return report
