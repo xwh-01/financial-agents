@@ -10,6 +10,51 @@ Financial Agents 是一个财经新闻研究参考项目。项目接入真实新
 
 新闻采集 → 相关性排序 → 事件识别 → 市场影响分析 → 风险检查 → 报告生成 → 历史报告保存
 
+## 项目主链路 / Main Workflow
+
+当前推荐主接口是：
+
+```http
+POST /api/agent/market-pulse/langgraph
+```
+
+当前推荐主流程文件是：
+
+```text
+agent-python/workflows/langgraph_market_workflow.py
+```
+
+主链路如下：
+
+```text
+User Query
+  ↓
+FastAPI Route
+  ↓
+LangGraph Market Pulse Workflow
+  ↓
+collect_news
+  ↓
+rank_news
+  ↓
+analyze_items
+  ↓
+risk_route
+  ├── high risk → risk_review
+  └── normal    → generate_report
+  ↓
+save_report
+  ↓
+Return Report
+```
+
+旧版 workflow 会继续保留，用于兼容和子能力复用：
+
+- `agent-python/workflows/market_impact_workflow.py`：单条新闻分析子流程。
+- `agent-python/workflows/market_pulse_workflow.py`：旧版普通函数 Market Pulse 流程。
+
+`agent-python/agents/` 目录中的模块不是独立乱跑的多个 Agent，而是实体识别、事件分析、风险检查、报告生成等分析能力模块；这些能力由主 workflow 统一编排。
+
 ## 技术栈
 
 - Python
@@ -180,6 +225,7 @@ START
 -> risk_route
    -> risk_review -> generate_report  # 整体风险等级为 high
    -> generate_report                 # 其他情况
+-> save_report
 -> END
 ```
 
@@ -191,6 +237,7 @@ START
 - `risk_route`：根据整体风险等级做条件路由。
 - `risk_review`：复用已有风险和合规结果做高风险复核。
 - `generate_report`：生成兼容旧 Market Pulse 风格的结构化结果。
+- `save_report`：保存历史报告，并把 `report_id` 附加到返回结果。
 
 ## 历史报告存储
 

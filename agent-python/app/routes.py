@@ -116,6 +116,9 @@ async def market_pulse_route(request: MarketPulseRequest):
     return await run_market_pulse_workflow(request)
 
 
+# Current recommended Market Pulse main entry.
+# This route delegates the request to the LangGraph workflow and returns
+# the persisted report payload with report_id.
 @router.post("/api/agent/market-pulse/langgraph")
 async def langgraph_market_pulse_route(request: LangGraphMarketPulseRequest):
     result = await run_langgraph_market_pulse(

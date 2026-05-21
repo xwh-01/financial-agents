@@ -19,6 +19,13 @@ from agents.trend_predictor import (
     predict_ticker_trends,
 )
 
+# Current recommended Market Pulse entry workflow.
+#
+# Main path:
+# User query -> FastAPI route -> LangGraph Market Pulse workflow
+# -> collect_news -> rank_news -> analyze_items -> risk_route
+# -> optional risk_review -> generate_report -> save_report -> return report.
+
 
 class MarketPulseGraphState(TypedDict, total=False):
     query: str
@@ -34,6 +41,7 @@ class MarketPulseGraphState(TypedDict, total=False):
     error_message: str | None
 
 
+# collect_news: build the candidate news pool from query search or latest market news.
 async def _collect_news_node(
     state: MarketPulseGraphState,
 ) -> MarketPulseGraphState:
@@ -57,6 +65,7 @@ async def _collect_news_node(
     return {"candidate_news": candidate_news}
 
 
+# rank_news: score and trim candidate news before expensive per-item analysis.
 def _rank_news_node(state: MarketPulseGraphState) -> MarketPulseGraphState:
     print("[langgraph-market] rank_news")
     ranked_news = filter_and_rank_news(state.get("candidate_news", []))
@@ -68,6 +77,7 @@ def _rank_news_node(state: MarketPulseGraphState) -> MarketPulseGraphState:
     }
 
 
+# analyze_items: run the single-news impact workflow for each selected item.
 async def _analyze_items_node(
     state: MarketPulseGraphState,
 ) -> MarketPulseGraphState:
@@ -122,6 +132,7 @@ async def _analyze_items_node(
     }
 
 
+# risk_route: keep an explicit graph step before conditional high-risk routing.
 def _risk_route_node(
     state: MarketPulseGraphState,
 ) -> MarketPulseGraphState:
@@ -137,6 +148,7 @@ def _route_after_risk(
     return "generate_report"
 
 
+# risk_review: collect extra risk and compliance notes for high-risk results.
 def _risk_review_node(state: MarketPulseGraphState) -> MarketPulseGraphState:
     print("[langgraph-market] risk_review")
     notes: list[str] = []
@@ -155,6 +167,7 @@ def _risk_review_node(state: MarketPulseGraphState) -> MarketPulseGraphState:
     return {"risk_review_notes": _dedupe(notes)}
 
 
+# generate_report: assemble trends, recommendations, and the final report payload.
 def _generate_report_node(
     state: MarketPulseGraphState,
 ) -> MarketPulseGraphState:
@@ -192,6 +205,15 @@ def _generate_report_node(
     return {"result": result}
 
 
+# save_report: persist the final payload and attach the history report id.
+def _save_report_node(state: MarketPulseGraphState) -> MarketPulseGraphState:
+    print("[langgraph-market] save_report")
+    result = dict(state["result"])
+    result["report_id"] = _save_result_report(result)
+
+    return {"result": result}
+
+
 def _build_langgraph_market_pulse():
     graph = StateGraph(MarketPulseGraphState)
 
@@ -201,6 +223,7 @@ def _build_langgraph_market_pulse():
     graph.add_node("risk_route", _risk_route_node)
     graph.add_node("risk_review", _risk_review_node)
     graph.add_node("generate_report", _generate_report_node)
+    graph.add_node("save_report", _save_report_node)
 
     graph.add_edge(START, "collect_news")
     graph.add_edge("collect_news", "rank_news")
@@ -215,7 +238,8 @@ def _build_langgraph_market_pulse():
         },
     )
     graph.add_edge("risk_review", "generate_report")
-    graph.add_edge("generate_report", END)
+    graph.add_edge("generate_report", "save_report")
+    graph.add_edge("save_report", END)
 
     return graph.compile()
 
@@ -232,10 +256,7 @@ async def run_langgraph_market_pulse(query: str, max_items: int = 5) -> dict:
                 "error_message": None,
             }
         )
-        result = final_state["result"]
-        report_id = _save_result_report(result)
-        result["report_id"] = report_id
-        return result
+        return final_state["result"]
 
     except ExternalServiceError:
         raise
@@ -255,13 +276,39 @@ def _save_result_report(result: dict) -> int:
             query=str(result.get("query") or ""),
             news_count=news_count,
             risk_level=str(result.get("risk_level") or "unknown"),
-            summary=str(result.get("summary") or ""),
+            summary=_extract_report_summary(result),
             report=result,
         )
     except Exception as exc:
         raise ExternalServiceError(
             f"Failed to save LangGraph market pulse report: {exc}"
         ) from exc
+
+
+def _extract_report_summary(result: dict) -> str:
+    summary = str(result.get("summary") or "").strip()
+    if summary:
+        return summary
+
+    report_text = str(result.get("report") or result.get("final_report") or "").strip()
+    if report_text:
+        return _compact_summary(report_text)
+
+    query = str(result.get("query") or "").strip()
+    if query:
+        return f"Market Pulse report for query: {query}"
+
+    return "Market Pulse report"
+
+
+def _compact_summary(text: str, max_length: int = 180) -> str:
+    line = next((item.strip() for item in text.splitlines() if item.strip()), "")
+    summary = line or " ".join(text.split())
+
+    if len(summary) <= max_length:
+        return summary
+
+    return summary[: max_length - 3].rstrip() + "..."
 
 
 def _overall_risk_level(results: list[WorkflowResult]) -> str:
