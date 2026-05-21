@@ -1,6 +1,23 @@
 from market_pulse.schemas import ComplianceResult
-from safety.forbidden_phrases import FORBIDDEN_PHRASES
-from safety.policy import REQUIRED_DISCLAIMER
+
+
+REQUIRED_DISCLAIMER = "不构成投资建议"
+
+FORBIDDEN_PHRASES = [
+    "建议买入",
+    "建议卖出",
+    "推荐买入",
+    "推荐卖出",
+    "可以买入",
+    "可以卖出",
+    "必涨",
+    "必跌",
+    "稳赚",
+    "保证收益",
+    "无风险收益",
+    "抄底",
+    "逃顶",
+]
 
 
 def check_report_safety(report: str) -> ComplianceResult:
@@ -18,7 +35,10 @@ def check_report_safety(report: str) -> ComplianceResult:
         )
 
     if violations:
-        sanitized_report += "\n\n合规提示：报告中检测到可能构成投资建议或收益承诺的表达，请重新生成或人工复核。"
+        sanitized_report += (
+            "\n\n合规提示：报告中检测到可能构成投资建议或收益承诺的表达，"
+            "请重新生成或人工复核。"
+        )
 
     final_disclaimer_present = REQUIRED_DISCLAIMER in sanitized_report
 

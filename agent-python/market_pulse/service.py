@@ -3,19 +3,19 @@ import uuid
 
 from clients.news_client import search_news
 from clients.rss_client import collect_company_market_news
-from market_pulse.analyzers.compliance_checker import check_compliance
 from market_pulse.analyzers.entity_resolver import resolve_entities
 from market_pulse.analyzers.event_analyzer import analyze_event
 from market_pulse.analyzers.market_analyzer import analyze_market
-from market_pulse.analyzers.report_generator import generate_report
-from market_pulse.analyzers.risk_checker import check_risk
-from market_pulse.analyzers.ticker_linker import link_tickers
-from market_pulse.analyzers.trend_predictor import (
+from market_pulse.analyzers.report_generator import (
     build_daily_trend_report,
     build_financial_recommendations,
     build_market_pulse_report,
+    check_compliance,
+    generate_report,
     predict_ticker_trends,
 )
+from market_pulse.analyzers.risk_checker import check_risk
+from market_pulse.analyzers.ticker_linker import link_tickers
 from market_pulse.graph import run_langgraph_market_pulse as _run_langgraph_market_pulse
 from market_pulse.rankers.news_ranker import filter_and_rank_news
 from market_pulse.repository import get_report as _get_report
@@ -78,7 +78,7 @@ async def run_single_news_analysis(request: AnalyzeRequest) -> WorkflowResult:
         )
 
 
-async def search_market_news(request: SearchNewsRequest) -> list[NewsItem]:
+async def search_news_items(request: SearchNewsRequest) -> list[NewsItem]:
     return await search_news(
         query=request.query,
         limit=request.limit,

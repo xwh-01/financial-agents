@@ -1,4 +1,4 @@
-from market_pulse.analyzers.trend_predictor import (
+from market_pulse.analyzers.report_generator import (
     build_financial_recommendations,
     build_market_pulse_report,
     predict_ticker_trends,
@@ -42,13 +42,6 @@ def generate_report_node(
         "error_message": None,
     }
 
-    return {"result": result}
-
-
-def save_report_node(state: MarketPulseGraphState) -> MarketPulseGraphState:
-    """Persist the final payload and attach the history report id."""
-    print("[langgraph-market] save_report")
-    result = dict(state["result"])
     result["report_id"] = _save_result_report(result)
 
     return {"result": result}

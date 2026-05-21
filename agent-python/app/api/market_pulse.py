@@ -19,7 +19,7 @@ from market_pulse.service import (
     run_langgraph_market_pulse,
     run_market_pulse,
     run_single_news_analysis,
-    search_market_news,
+    search_news_items,
 )
 
 
@@ -43,7 +43,7 @@ async def analyze(request: AnalyzeRequest):
 
 @router.post("/agent/search-news", response_model=SearchNewsResponse)
 async def search_news_route(request: SearchNewsRequest):
-    items = await search_market_news(request)
+    items = await search_news_items(request)
     return SearchNewsResponse(items=items)
 
 

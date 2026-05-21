@@ -3,7 +3,7 @@ from langgraph.graph import END, START, StateGraph
 from app.errors import ExternalServiceError
 from market_pulse.nodes.analyze_items import analyze_items_node
 from market_pulse.nodes.collect_news import collect_news_node
-from market_pulse.nodes.generate_report import generate_report_node, save_report_node
+from market_pulse.nodes.generate_report import generate_report_node
 from market_pulse.nodes.rank_news import rank_news_node
 from market_pulse.nodes.risk_review import (
     risk_review_node,
@@ -22,7 +22,6 @@ def _build_langgraph_market_pulse():
     graph.add_node("risk_route", risk_route_node)
     graph.add_node("risk_review", risk_review_node)
     graph.add_node("generate_report", generate_report_node)
-    graph.add_node("save_report", save_report_node)
 
     graph.add_edge(START, "collect_news")
     graph.add_edge("collect_news", "rank_news")
@@ -37,8 +36,7 @@ def _build_langgraph_market_pulse():
         },
     )
     graph.add_edge("risk_review", "generate_report")
-    graph.add_edge("generate_report", "save_report")
-    graph.add_edge("save_report", END)
+    graph.add_edge("generate_report", END)
 
     return graph.compile()
 

@@ -1,1 +1,0 @@
-"""Market Pulse domain package."""

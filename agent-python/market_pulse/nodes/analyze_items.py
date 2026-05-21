@@ -1,11 +1,10 @@
 import asyncio
 import uuid
 
-from market_pulse.analyzers.compliance_checker import check_compliance
 from market_pulse.analyzers.entity_resolver import resolve_entities
 from market_pulse.analyzers.event_analyzer import analyze_event
 from market_pulse.analyzers.market_analyzer import analyze_market
-from market_pulse.analyzers.report_generator import generate_report
+from market_pulse.analyzers.report_generator import check_compliance, generate_report
 from market_pulse.analyzers.risk_checker import check_risk
 from market_pulse.analyzers.ticker_linker import link_tickers
 from market_pulse.schemas import AnalyzeRequest, DailyNewsAnalysis, WorkflowResult
