@@ -18,8 +18,10 @@ def generate_report_node(
     risk_review_notes = state.get("risk_review_notes", [])
 
     if risk_review_notes:
-        report = report + "\n\nRisk review:\n" + "\n".join(
-            f"- {note}" for note in risk_review_notes
+        report = (
+            report
+            + "\n\nRisk review:\n"
+            + "\n".join(f"- {note}" for note in risk_review_notes)
         )
 
     result = {
@@ -33,9 +35,7 @@ def generate_report_node(
         "risk_level": state.get("overall_risk_level", "low"),
         "overall_risk_level": state.get("overall_risk_level", "low"),
         "risk_review_notes": risk_review_notes,
-        "analyzed_news": [
-            item.model_dump() for item in state.get("analyzed_news", [])
-        ],
+        "analyzed_news": [item.model_dump() for item in state.get("analyzed_news", [])],
         "trends": [item.model_dump() for item in trends],
         "recommendations": [item.model_dump() for item in recommendations],
         "report": report,

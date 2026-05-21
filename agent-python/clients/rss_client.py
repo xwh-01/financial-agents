@@ -77,9 +77,7 @@ async def fetch_rss_feed(url: str, limit: int = 20) -> list[NewsItem]:
     for idx, entry in enumerate(parsed.entries[: max(0, limit)]):
         title = _as_text(entry.get("title"))
         content = _as_text(
-            entry.get("summary")
-            or entry.get("description")
-            or entry.get("subtitle")
+            entry.get("summary") or entry.get("description") or entry.get("subtitle")
         )
         link = _as_text(entry.get("link"))
         published_at = _as_text(entry.get("published") or entry.get("updated"))
