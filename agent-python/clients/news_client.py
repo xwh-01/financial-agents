@@ -1,8 +1,10 @@
-import httpx
 import math
+from urllib.parse import urlparse
+
+import httpx
 
 from app.config import settings
-from app.errors import ExternalServiceNotConfigured, ExternalServiceError
+from app.errors import ExternalServiceError, ExternalServiceNotConfigured
 from clients.llm_client import chat_completion
 from market_pulse.schemas import NewsItem
 
@@ -50,29 +52,19 @@ async def search_news(
     language: str = "en",
     translate_to_zh: bool = True,
 ) -> list[NewsItem]:
-    """
-    使用 Marketaux /v1/news/all 搜索金融新闻。
-
-    .env:
-    NEWS_BASE_URL=https://api.marketaux.com/v1/news/all
-    NEWS_API_KEY=your_marketaux_api_token
-
-    Marketaux 使用 api_token 作为认证参数。
-    """
-
     if not settings.news_api_key:
         raise ExternalServiceNotConfigured("NEWS_API_KEY is not configured.")
 
     if not settings.news_base_url:
         raise ExternalServiceNotConfigured("NEWS_BASE_URL is not configured.")
 
-    params = {
-        "api_token": settings.news_api_key,
-        "limit": max(1, min(limit, 20)),
-        "language": language,
-    }
-    if query.strip():
-        params["search"] = query.strip()
+    provider = _detect_news_provider(settings.news_base_url)
+    params = _build_news_params(
+        provider=provider,
+        query=query,
+        limit=limit,
+        language=language,
+    )
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
@@ -80,63 +72,26 @@ async def search_news(
 
         if resp.status_code >= 400:
             raise ExternalServiceError(
-                f"Marketaux news request failed: status={resp.status_code}, body={resp.text}"
+                f"{provider} news request failed: "
+                f"status={resp.status_code}, body={resp.text}"
             )
 
         data = resp.json()
-
         if "error" in data:
-            raise ExternalServiceError(f"Marketaux error: {data}")
+            raise ExternalServiceError(f"{provider} error: {data}")
+        if data.get("status") == "error":
+            raise ExternalServiceError(f"{provider} error: {data}")
 
-        articles = data.get("data", [])
-        items: list[NewsItem] = []
-
-        for idx, article in enumerate(articles):
-            title = article.get("title") or ""
-            description = article.get("description") or ""
-            snippet = article.get("snippet") or ""
-            url = article.get("url") or ""
-            published_at = article.get("published_at") or ""
-            source = article.get("source") or ""
-
-            content = description or snippet
-
-            if not title and not content:
-                continue
-
-            title_zh = ""
-            content_zh = ""
-
-            if translate_to_zh:
-                try:
-                    title_zh = await translate_to_chinese(title)
-                except Exception:
-                    title_zh = ""
-
-                try:
-                    content_zh = await translate_to_chinese(content)
-                except Exception:
-                    content_zh = ""
-
-            items.append(
-                NewsItem(
-                    index=idx,
-                    title=title,
-                    title_zh=title_zh,
-                    content=content,
-                    content_zh=content_zh,
-                    source=source,
-                    url=url,
-                    published_at=published_at,
-                )
-            )
-
-        return items
+        return await _parse_news_response(
+            provider=provider,
+            data=data,
+            translate_to_zh=translate_to_zh,
+        )
 
     except ExternalServiceError:
         raise
     except Exception as exc:
-        raise ExternalServiceError(f"Marketaux news request failed: {exc}") from exc
+        raise ExternalServiceError(f"{provider} news request failed: {exc}") from exc
 
 
 async def collect_latest_market_news(
@@ -161,10 +116,173 @@ async def collect_latest_market_news(
                 translate_to_zh=translate_to_zh,
             )
             all_items.extend(items)
-        except Exception:
-            continue
+        except Exception as exc:
+            print(f"[news-api] query failed query={query!r}: {exc}")
+            if _is_terminal_news_error(exc):
+                break
 
     return _dedupe_news(all_items)
+
+
+def _detect_news_provider(base_url: str) -> str:
+    host = urlparse(base_url).netloc.lower()
+    if "newsapi.org" in host:
+        return "newsapi"
+    if "marketaux.com" in host:
+        return "marketaux"
+    return "generic"
+
+
+def _is_terminal_news_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return (
+        "status=401" in message
+        or "status=402" in message
+        or "apikeyinvalid" in message
+        or "usage_limit" in message
+        or "usage limit" in message
+    )
+
+
+def _build_news_params(
+    provider: str,
+    query: str,
+    limit: int,
+    language: str,
+) -> dict[str, str | int]:
+    safe_limit = max(1, min(limit, 50))
+    clean_query = query.strip()
+
+    if provider == "newsapi":
+        params: dict[str, str | int] = {
+            "apiKey": settings.news_api_key,
+            "pageSize": safe_limit,
+            "language": language,
+            "sortBy": "publishedAt",
+        }
+        if clean_query:
+            params["q"] = clean_query
+        return params
+
+    params = {
+        "api_token": settings.news_api_key,
+        "limit": safe_limit,
+        "language": language,
+    }
+    if clean_query:
+        params["search"] = clean_query
+    return params
+
+
+async def _parse_news_response(
+    provider: str,
+    data: dict,
+    translate_to_zh: bool,
+) -> list[NewsItem]:
+    articles = data.get("articles") if provider == "newsapi" else data.get("data")
+    if not isinstance(articles, list):
+        return []
+
+    items: list[NewsItem] = []
+    for idx, article in enumerate(articles):
+        if not isinstance(article, dict):
+            continue
+
+        item = await _parse_article(
+            idx=idx,
+            provider=provider,
+            article=article,
+            translate_to_zh=translate_to_zh,
+        )
+        if item:
+            items.append(item)
+
+    return items
+
+
+async def _parse_article(
+    idx: int,
+    provider: str,
+    article: dict,
+    translate_to_zh: bool,
+) -> NewsItem | None:
+    if provider == "newsapi":
+        source_data = article.get("source") or {}
+        source = source_data.get("name") if isinstance(source_data, dict) else ""
+        title = article.get("title") or ""
+        description = article.get("description") or ""
+        content = article.get("content") or ""
+        url = article.get("url") or ""
+        published_at = article.get("publishedAt") or ""
+
+        return await _build_news_item(
+            idx=idx,
+            title=title,
+            content=description or content,
+            source=source or "",
+            url=url,
+            published_at=published_at,
+            provider=provider,
+            translate_to_zh=translate_to_zh,
+        )
+
+    title = article.get("title") or ""
+    description = article.get("description") or ""
+    snippet = article.get("snippet") or ""
+    url = article.get("url") or ""
+    published_at = article.get("published_at") or ""
+    source = article.get("source") or ""
+
+    return await _build_news_item(
+        idx=idx,
+        title=title,
+        content=description or snippet,
+        source=source,
+        url=url,
+        published_at=published_at,
+        provider=provider,
+        translate_to_zh=translate_to_zh,
+    )
+
+
+async def _build_news_item(
+    idx: int,
+    title: str,
+    content: str,
+    source: str,
+    url: str,
+    published_at: str,
+    provider: str,
+    translate_to_zh: bool,
+) -> NewsItem | None:
+    if not title and not content:
+        return None
+
+    title_zh = ""
+    content_zh = ""
+
+    if translate_to_zh:
+        try:
+            title_zh = await translate_to_chinese(title)
+        except Exception:
+            title_zh = ""
+
+        try:
+            content_zh = await translate_to_chinese(content)
+        except Exception:
+            content_zh = ""
+
+    return NewsItem(
+        index=idx,
+        title=title,
+        title_zh=title_zh,
+        content=content,
+        content_zh=content_zh,
+        source=source,
+        url=url,
+        published_at=published_at,
+        provider=provider,
+    )
 
 
 def _dedupe_news(items: list[NewsItem]) -> list[NewsItem]:

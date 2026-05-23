@@ -176,11 +176,17 @@ def score_news_item(
 def filter_and_rank_news(
     items: list[NewsItem],
     min_score: float = 3,
+    query: str = "",
 ) -> list[NewsItem]:
     ranked: list[NewsItem] = []
+    query_matched: list[NewsItem] = []
 
     for item in items:
         score, reasons, tickers, topics, events = score_news_item(item)
+        query_hits = _query_hits(f"{item.title} {item.content}", query)
+        if query_hits:
+            score += min(16, len(query_hits) * 4)
+            reasons.append("matched_query=" + ",".join(query_hits[:5]))
 
         item.relevance_score = score
         item.relevance_reasons = reasons
@@ -192,6 +198,44 @@ def filter_and_rank_news(
             continue
 
         ranked.append(item)
+        if query_hits:
+            query_matched.append(item)
+
+    if query.strip() and query_matched:
+        ranked = query_matched
 
     ranked.sort(key=lambda item: item.relevance_score, reverse=True)
     return ranked
+
+
+def _query_hits(text: str, query: str) -> list[str]:
+    query = query.strip().lower()
+    if not query:
+        return []
+
+    text = text.lower()
+    hits: list[str] = []
+    if query in text:
+        hits.append(query)
+
+    tokens = re.findall(r"[a-zA-Z0-9.]+", query)
+    ignored = {
+        "and",
+        "or",
+        "the",
+        "for",
+        "with",
+        "news",
+        "today",
+        "market",
+        "markets",
+        "stock",
+        "stocks",
+    }
+    for token in tokens:
+        if len(token) < 3 or token in ignored:
+            continue
+        if contains_keyword(text, token) and token not in hits:
+            hits.append(token)
+
+    return hits

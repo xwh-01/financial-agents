@@ -56,15 +56,44 @@ agent-python/market_pulse/service.py
 ## 目录职责
 
 - `app`: API 层，只负责 FastAPI app、router 注册、请求响应。
+- `app/api`: FastAPI 路由层，包括健康检查、Market Pulse 和报告查询。
 - `market_pulse`: Market Pulse 核心业务域。
 - `market_pulse/graph.py`: LangGraph 主流程编排。
-- `market_pulse/nodes`: 图节点。
+- `market_pulse/nodes`: LangGraph 节点。
 - `market_pulse/analyzers`: 单条新闻分析能力。
 - `market_pulse/rankers`: 排序策略。
 - `clients`: 外部服务调用，包括 LLM、新闻、RSS、行情数据。
 - `market_pulse/repository.py`: 业务持久化入口。
-- `storage/report_store.py`: SQLite 底层存储实现。
+- `storage/report_store.py`: 底层 SQLite 存储实现。
 - `safety/report_guard.py`: 报告合规与安全检查。
+
+## 数据源链路
+
+Market Pulse 当前数据源链路：
+
+```text
+company_feeds.json
+  ↓
+clients/rss_client.py
+  ↓
+collect_company_market_news
+  ↓
+market_pulse/service.py 或 market_pulse/nodes/collect_news.py
+  ↓
+ranker
+  ↓
+analyzer
+  ↓
+report
+```
+
+数据源包括：
+
+- `company rss_feeds`: `agent-python/config/company_feeds.json` 中维护的公司 RSS。
+- Yahoo Finance ticker RSS: `https://finance.yahoo.com/rss/headline?s=<TICKER>`。
+- NVIDIA official RSS: `https://nvidianews.nvidia.com/rss`。
+- Google News RSS fallback: 当公司 RSS 拉取不足时，使用 `search_queries` 构造 Google News RSS。
+- News API search endpoint: 用于通用新闻搜索和候选新闻补充。
 
 ## 面试时推荐说法
 

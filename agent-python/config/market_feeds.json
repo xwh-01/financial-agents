@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Nasdaq Markets",
+    "rss_feeds": [
+      "https://www.nasdaq.com/feed/rssoutbound?category=Markets",
+      "https://www.nasdaq.com/feed/rssoutbound?category=Earnings",
+      "https://www.nasdaq.com/feed/rssoutbound?category=Technology",
+      "https://www.nasdaq.com/feed/rssoutbound?category=Artificial%20Intelligence",
+      "https://www.nasdaq.com/feed/rssoutbound?category=Commodities"
+    ]
+  },
+  {
+    "name": "CNBC Markets",
+    "rss_feeds": [
+      "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+      "https://www.cnbc.com/id/15839069/device/rss/rss.html",
+      "https://www.cnbc.com/id/20910258/device/rss/rss.html"
+    ]
+  },
+  {
+    "name": "Regulatory And Macro",
+    "rss_feeds": [
+      "https://www.sec.gov/news/pressreleases.rss",
+      "https://www.federalreserve.gov/feeds/press_all.xml"
+    ]
+  }
+]

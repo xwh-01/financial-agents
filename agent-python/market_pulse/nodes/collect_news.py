@@ -1,4 +1,5 @@
-from clients.news_client import collect_latest_market_news, search_news
+from clients.news_client import search_news
+from clients.rss_client import collect_company_market_news, dedupe_news_items
 from market_pulse.state import MarketPulseGraphState
 
 
@@ -8,19 +9,33 @@ async def collect_news_node(
     """Build the candidate news pool from query search or latest market news."""
     print("[langgraph-market] collect_news")
     query = state.get("query", "").strip()
+    candidate_news = []
 
     if query:
-        candidate_news = await search_news(
-            query=query,
-            limit=50,
-            language="en",
-            translate_to_zh=False,
+        try:
+            candidate_news.extend(
+                await search_news(
+                    query=query,
+                    limit=50,
+                    language="en",
+                    translate_to_zh=False,
+                )
+            )
+        except Exception as exc:
+            print(f"[langgraph-market] query news search failed: {exc}")
+
+    try:
+        candidate_news.extend(
+            await collect_company_market_news(
+                limit=50,
+                language="en",
+                translate_to_zh=False,
+            )
         )
-    else:
-        candidate_news = await collect_latest_market_news(
-            limit=50,
-            language="en",
-            translate_to_zh=False,
-        )
+    except Exception as exc:
+        print(f"[langgraph-market] company market news failed: {exc}")
+
+    candidate_news = dedupe_news_items(candidate_news)
+    print(f"[langgraph-market] candidate_news={len(candidate_news)}")
 
     return {"candidate_news": candidate_news}

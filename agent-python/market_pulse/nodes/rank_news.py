@@ -5,7 +5,10 @@ from market_pulse.state import MarketPulseGraphState
 def rank_news_node(state: MarketPulseGraphState) -> MarketPulseGraphState:
     """Score and trim candidate news before expensive per-item analysis."""
     print("[langgraph-market] rank_news")
-    ranked_news = filter_and_rank_news(state.get("candidate_news", []))
+    ranked_news = filter_and_rank_news(
+        state.get("candidate_news", []),
+        query=state.get("query", ""),
+    )
     analysis_limit = max(1, min(state.get("max_items", 5), 5))
 
     return {

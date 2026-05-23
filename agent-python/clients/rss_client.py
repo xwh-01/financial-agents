@@ -17,12 +17,26 @@ GOOGLE_NEWS_RSS_TEMPLATE = (
     "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
 )
 
+RSS_REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0 Safari/537.36"
+    ),
+    "Accept": "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.7",
+}
+
 
 class CompanyFeedConfig(TypedDict):
     company: str
     ticker: str
     rss_feeds: list[str]
     search_queries: list[str]
+
+
+class MarketFeedConfig(TypedDict):
+    name: str
+    rss_feeds: list[str]
 
 
 def load_company_feeds() -> list[CompanyFeedConfig]:
@@ -57,6 +71,7 @@ def load_company_feeds() -> list[CompanyFeedConfig]:
                 }
             )
 
+        print(f"[company-feeds] loaded companies={len(configs)} path={path}")
         return configs
 
     except Exception as exc:
@@ -64,9 +79,45 @@ def load_company_feeds() -> list[CompanyFeedConfig]:
         return []
 
 
+def load_market_feeds() -> list[MarketFeedConfig]:
+    path = _market_config_path()
+
+    if not path.exists():
+        print(f"[market-feeds] config not found: {path}")
+        return []
+
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(raw, list):
+            print(f"[market-feeds] invalid config root, expected list: {path}")
+            return []
+
+        configs: list[MarketFeedConfig] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+
+            name = _as_text(item.get("name"))
+            rss_feeds = _as_str_list(item.get("rss_feeds"))
+            if not name or not rss_feeds:
+                continue
+
+            configs.append({"name": name, "rss_feeds": rss_feeds})
+
+        print(f"[market-feeds] loaded groups={len(configs)} path={path}")
+        return configs
+
+    except Exception as exc:
+        print(f"[market-feeds] failed to load {path}: {exc}")
+        return []
+
+
 async def fetch_rss_feed(url: str, limit: int = 20) -> list[NewsItem]:
-    async with httpx.AsyncClient(timeout=settings.rss_timeout_seconds) as client:
-        response = await client.get(url)
+    async with httpx.AsyncClient(
+        timeout=settings.rss_timeout_seconds,
+        follow_redirects=True,
+    ) as client:
+        response = await client.get(url, headers=RSS_REQUEST_HEADERS)
         response.raise_for_status()
 
     parsed = feedparser.parse(response.content)
@@ -103,14 +154,17 @@ async def fetch_rss_feed(url: str, limit: int = 20) -> list[NewsItem]:
 async def fetch_rss_feeds(
     urls: list[str],
     limit_per_feed: int = 20,
+    source_label: str = "rss",
 ) -> list[NewsItem]:
     items: list[NewsItem] = []
 
     for url in urls:
         try:
-            items.extend(await fetch_rss_feed(url, limit=limit_per_feed))
+            feed_items = await fetch_rss_feed(url, limit=limit_per_feed)
+            print(f"[rss] source={source_label} url={url} items={len(feed_items)}")
+            items.extend(feed_items)
         except Exception as exc:
-            print(f"[rss] skip feed url={url}: {exc}")
+            print(f"[rss] source={source_label} url={url} failed: {exc}")
 
     return items
 
@@ -134,28 +188,76 @@ async def collect_company_market_news(
         print(f"[source-aggregator] news api failed: {exc}")
 
     configs = load_company_feeds()
+    market_configs = load_market_feeds()
+
     if settings.enable_company_rss and configs:
         rss_urls = _company_rss_urls(configs)
         fallback_urls = _google_news_fallback_urls(configs)
+        for config in configs:
+            print(
+                "[company-feeds] "
+                f"company={config['company']} ticker={config['ticker']} "
+                f"rss_feeds={len(config['rss_feeds'])} "
+                f"search_queries={len(config['search_queries'])}"
+            )
 
         try:
-            all_items.extend(
-                await fetch_rss_feeds(rss_urls, limit_per_feed=settings.min_news_count)
+            rss_items = await fetch_rss_feeds(
+                rss_urls,
+                limit_per_feed=settings.min_news_count,
+                source_label="company-rss",
             )
+            print(f"[source-aggregator] company rss total={len(rss_items)}")
+            all_items.extend(rss_items)
         except Exception as exc:
             print(f"[source-aggregator] company rss failed: {exc}")
+            rss_items = []
 
-        try:
-            all_items.extend(
-                await fetch_rss_feeds(
+        if len(rss_items) < settings.min_news_count:
+            try:
+                fallback_items = await fetch_rss_feeds(
                     fallback_urls,
                     limit_per_feed=max(1, min(settings.min_news_count, 20)),
+                    source_label="google-news-fallback",
                 )
+                print(
+                    "[source-aggregator] "
+                    f"google news rss fallback total={len(fallback_items)}"
+                )
+                all_items.extend(fallback_items)
+            except Exception as exc:
+                print(f"[source-aggregator] google news rss fallback failed: {exc}")
+        else:
+            print(
+                "[source-aggregator] "
+                f"skip fallback, company rss items={len(rss_items)} "
+                f"threshold={settings.min_news_count}"
             )
+
+    if settings.enable_market_rss and market_configs:
+        market_urls = _market_rss_urls(market_configs)
+        for config in market_configs:
+            print(
+                "[market-feeds] "
+                f"name={config['name']} rss_feeds={len(config['rss_feeds'])}"
+            )
+
+        try:
+            market_items = await fetch_rss_feeds(
+                market_urls,
+                limit_per_feed=max(3, min(settings.min_news_count, 10)),
+                source_label="market-rss",
+            )
+            print(f"[source-aggregator] market rss total={len(market_items)}")
+            all_items.extend(market_items)
         except Exception as exc:
-            print(f"[source-aggregator] google news rss fallback failed: {exc}")
+            print(f"[source-aggregator] market rss failed: {exc}")
 
     deduped = dedupe_news_items(all_items)
+    print(
+        f"[source-aggregator] total before dedupe={len(all_items)} "
+        f"after dedupe={len(deduped)}"
+    )
     for item in deduped:
         _add_company_tickers(item, configs)
 
@@ -191,6 +293,13 @@ def dedupe_news_items(items: list[NewsItem]) -> list[NewsItem]:
 
 
 def _company_rss_urls(configs: list[CompanyFeedConfig]) -> list[str]:
+    urls: list[str] = []
+    for config in configs:
+        urls.extend(config["rss_feeds"])
+    return _dedupe_strings(urls)
+
+
+def _market_rss_urls(configs: list[MarketFeedConfig]) -> list[str]:
     urls: list[str] = []
     for config in configs:
         urls.extend(config["rss_feeds"])
@@ -240,6 +349,14 @@ def _dedupe_strings(items: list[str]) -> list[str]:
 
 def _config_path() -> Path:
     configured = Path(settings.company_feeds_path)
+    if configured.is_absolute():
+        return configured
+
+    return Path(__file__).resolve().parents[1] / configured
+
+
+def _market_config_path() -> Path:
+    configured = Path(settings.market_feeds_path)
     if configured.is_absolute():
         return configured
 

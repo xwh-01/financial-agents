@@ -2,55 +2,160 @@
   {
     "company": "NVIDIA",
     "ticker": "NVDA",
-    "rss_feeds": [],
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=NVDA",
+      "https://nvidianews.nvidia.com/rss"
+    ],
     "search_queries": [
       "NVIDIA",
       "NVDA",
       "NVIDIA earnings",
-      "NVIDIA AI chips"
+      "NVIDIA AI chips",
+      "NVIDIA Blackwell",
+      "NVIDIA data center",
+      "NVIDIA GPU demand"
     ]
   },
   {
     "company": "AMD",
     "ticker": "AMD",
-    "rss_feeds": [],
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=AMD"
+    ],
     "search_queries": [
       "AMD",
       "AMD earnings",
-      "AMD AI chips"
+      "AMD AI chips",
+      "AMD Instinct GPU",
+      "AMD data center",
+      "AMD semiconductor"
     ]
   },
   {
     "company": "Apple",
     "ticker": "AAPL",
-    "rss_feeds": [],
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=AAPL"
+    ],
     "search_queries": [
       "Apple",
       "AAPL",
+      "Apple earnings",
       "iPhone sales",
-      "Apple earnings"
+      "Apple AI",
+      "Apple services revenue",
+      "Apple supply chain"
     ]
   },
   {
     "company": "Microsoft",
     "ticker": "MSFT",
-    "rss_feeds": [],
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=MSFT"
+    ],
     "search_queries": [
       "Microsoft",
       "MSFT",
+      "Microsoft earnings",
       "Azure AI",
-      "Microsoft earnings"
+      "Microsoft Copilot",
+      "OpenAI Microsoft",
+      "Microsoft cloud revenue"
     ]
   },
   {
     "company": "Tesla",
     "ticker": "TSLA",
-    "rss_feeds": [],
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=TSLA"
+    ],
     "search_queries": [
       "Tesla",
       "TSLA",
+      "Tesla earnings",
       "Tesla deliveries",
-      "Tesla earnings"
+      "Tesla margins",
+      "Tesla EV demand",
+      "Tesla robotaxi"
+    ]
+  },
+  {
+    "company": "Alphabet",
+    "ticker": "GOOGL",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=GOOGL"
+    ],
+    "search_queries": [
+      "Alphabet",
+      "GOOGL",
+      "Google earnings",
+      "Google Cloud",
+      "Gemini AI",
+      "Google advertising revenue",
+      "Alphabet antitrust"
+    ]
+  },
+  {
+    "company": "Amazon",
+    "ticker": "AMZN",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=AMZN"
+    ],
+    "search_queries": [
+      "Amazon",
+      "AMZN",
+      "Amazon earnings",
+      "AWS revenue",
+      "Amazon retail margins",
+      "Amazon AI",
+      "Amazon cloud"
+    ]
+  },
+  {
+    "company": "Meta",
+    "ticker": "META",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=META"
+    ],
+    "search_queries": [
+      "Meta",
+      "META",
+      "Meta earnings",
+      "Meta AI",
+      "Facebook advertising",
+      "Instagram Reels",
+      "Reality Labs"
+    ]
+  },
+  {
+    "company": "Broadcom",
+    "ticker": "AVGO",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=AVGO"
+    ],
+    "search_queries": [
+      "Broadcom",
+      "AVGO",
+      "Broadcom earnings",
+      "Broadcom AI chips",
+      "Broadcom VMware",
+      "AI networking chips"
+    ]
+  },
+  {
+    "company": "Taiwan Semiconductor Manufacturing",
+    "ticker": "TSM",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=TSM"
+    ],
+    "search_queries": [
+      "TSMC",
+      "TSM",
+      "Taiwan Semiconductor",
+      "TSMC earnings",
+      "TSMC advanced nodes",
+      "TSMC AI demand",
+      "semiconductor foundry"
     ]
   }
 ]
