@@ -15,6 +15,7 @@ var App = (function () {
     "": "watchlists",
     "login": "login",
     "register": "register",
+    "today": "today",
     "watchlists": "watchlists",
     "watchlist-detail": "watchlistDetail",
     "jobs": "jobs",
@@ -57,6 +58,7 @@ var App = (function () {
     var hash = (location.hash || "#").replace("#", "");
     $nav.innerHTML = [
       '<a href="#" class="brand">Financial Agents</a>',
+      isAuth ? '<a href="#today" class="' + (hash === "today" ? "active" : "") + '">Today</a>' : "",
       isAuth ? '<a href="#watchlists" class="' + (hash === "watchlists" || hash === "" ? "active" : "") + '">Watchlists</a>' : "",
       isAuth ? '<a href="#reports" class="' + (hash === "reports" ? "active" : "") + '">Reports</a>' : "",
       isAuth ? '<a href="#jobs" class="' + (hash === "jobs" ? "active" : "") + '">Jobs</a>' : "",
@@ -164,7 +166,11 @@ var App = (function () {
 
   window.createJob = async function (wlId) {
     showError("");
-    try { await API.watchlists.createJob(wlId); showToast("Job created"); } catch (e) { showError(e.message); }
+    try {
+      var job = await API.watchlists.createJob(wlId);
+      showToast("Job #" + (job.id || "?") + " created (" + (job.status || "pending") + "). Go to Jobs page to run it.");
+      enqueue(function () { location.hash = "#jobs"; });
+    } catch (e) { showError(e.message); }
   };
 
   window.watchlistDetail = async function () {
@@ -236,7 +242,39 @@ var App = (function () {
 
   window.runJob = async function (jobId) {
     showError("");
-    try { await API.jobs.run(jobId); showToast("Job running"); enqueue(window.jobs); } catch (e) { showError(e.message); }
+    try {
+      var job = await API.jobs.run(jobId);
+      var st = job.status || "";
+      if (st === "succeeded" && job.report_id) {
+        showToast("Job #" + jobId + " succeeded! Report #" + job.report_id + ". Click View Report.");
+      } else if (st === "failed" || st === "dead") {
+        showToast("Job #" + jobId + " " + st + ": " + (job.error_message || "unknown error"));
+      } else if (st === "running") {
+        showToast("Job #" + jobId + " is running. Refresh Jobs page to check status.");
+      } else {
+        showToast("Job #" + jobId + " status: " + st);
+      }
+      enqueue(window.jobs);
+    } catch (e) { showError(e.message); }
+  };
+
+  window.today = async function () {
+    showError("");
+    $container.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+    try {
+      var reports = await API.reports.today();
+      var rows = reports.map(function (r) {
+        var cs = r.compliance_status || "safe";
+        return '<tr><td><a href="#report-detail/' + r.id + '">' + esc(r.title || r.query) + '</a></td><td>' + esc(r.watchlist_id || "?") + '</td><td>' + esc(r.risk_level || "?") + '</td><td>' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</td><td>' + esc(r.created_at || "") + '</td><td><a class="btn secondary" href="#report-detail/' + r.id + '">View</a></td></tr>';
+      }).join("");
+      $container.innerHTML = [
+        '<div class="panel"><div class="panel-head"><h2>Today\'s Reports</h2></div>',
+        reports.length
+          ? '<div class="table-wrap"><table><thead><tr><th>Title</th><th>WL ID</th><th>Risk</th><th>Compliance</th><th>Created</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+          : '<div class="empty">No reports generated today yet. Create a watchlist, add items, create a job, and run it.</div>',
+        '</div>',
+      ].join("");
+    } catch (e) { showError("Failed to load: " + e.message); }
   };
 
   window.reports = async function () {
@@ -244,17 +282,46 @@ var App = (function () {
     $container.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
     try {
       var reports = await API.reports.list();
-      var rows = reports.map(function (r) {
-        var cs = r.compliance_status || "safe";
-        return '<tr><td><a href="#report-detail/' + r.id + '">' + esc(r.title || r.query) + '</a></td><td>' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</td><td>' + esc(r.risk_level || "?") + '</td><td>' + esc(r.created_at || "") + '</td></tr>';
-      }).join("");
-      $container.innerHTML = [
-        '<div class="panel"><div class="panel-head"><h2>Reports</h2></div>',
-        reports.length ? '<div class="table-wrap"><table><thead><tr><th>Title</th><th>Compliance</th><th>Risk</th><th>Created</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">No reports yet. Create a watchlist and run a job.</div>',
-        '</div>',
-      ].join("");
+      _renderReports(reports);
     } catch (e) { showError("Failed to load: " + e.message); }
   };
+
+  window.filterReports = async function () {
+    showError("");
+    var wlId = $("filterWlId").value.trim();
+    var ticker = $("filterTicker").value.trim();
+    var date = $("filterDate").value;
+    var limit = Number($("filterLimit").value) || 20;
+    $container.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+    try {
+      var reports = await API.reports.list({
+        watchlist_id: wlId || undefined,
+        ticker: ticker || undefined,
+        date: date || undefined,
+        limit: limit,
+      });
+      _renderReports(reports);
+    } catch (e) { showError("Filter failed: " + e.message); }
+  };
+
+  function _renderReports(reports) {
+    var rows = reports.map(function (r) {
+      var cs = r.compliance_status || "safe";
+      return '<tr><td><a href="#report-detail/' + r.id + '">' + esc(r.title || r.query) + '</a></td><td>' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</td><td>' + esc(r.risk_level || "?") + '</td><td>' + esc(r.created_at || "") + '</td></tr>';
+    }).join("");
+    $container.innerHTML = [
+      '<div class="panel"><div class="panel-head"><h2>Reports</h2><button class="btn secondary" onclick="window.reports()">Clear Filters</button></div>',
+      '<div class="form-grid" style="margin-bottom:14px">',
+      '<input id="filterWlId" type="text" placeholder="Watchlist ID" />',
+      '<input id="filterTicker" type="text" placeholder="Ticker (e.g. NVDA)" />',
+      '<input id="filterDate" type="text" placeholder="Date (YYYY-MM-DD)" />',
+      '<input id="filterLimit" type="number" value="20" min="1" max="100" placeholder="Limit" />',
+      '<button class="btn primary" onclick="App.filterReports()">Search</button>',
+      '</div>',
+      reports.length ? '<div class="table-wrap"><table><thead><tr><th>Title</th><th>Compliance</th><th>Risk</th><th>Created</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">No reports. Try adjusting filters.</div>',
+      '</div>',
+    ].join("");
+  }
 
   window.reportDetail = async function () {
     showError("");
@@ -263,8 +330,9 @@ var App = (function () {
     $container.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
     try {
       var report = await API.reports.get(reportId);
-      var rp = report.report || {};
+      var rp = report.report || report || {};
       var cs = rp.compliance_status || "safe";
+      var disclaimer = report.disclaimer || rp.disclaimer || "";
       var items = await API.reports.items(reportId);
       var apiItems = items || [];
 
@@ -275,7 +343,7 @@ var App = (function () {
           : "",
         '<div><strong>Risk Level:</strong> ' + esc(rp.risk_level || "?") + '</div>',
         '<div><strong>Compliance:</strong> ' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</div>',
-        report.disclaimer ? '<div class="notice" style="background:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.2);color:#bae6fd;margin-top:10px">' + esc(report.disclaimer) + '</div>' : "",
+        disclaimer ? '<div class="notice" style="background:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.2);color:#bae6fd;margin-top:10px">' + esc(disclaimer) + '</div>' : "",
         '<div class="report-box" style="margin-top:12px">' + esc(rp.summary || rp.report || "No summary.") + '</div>',
         '<h3 style="margin-top:18px">Sources</h3>',
         apiItems.length

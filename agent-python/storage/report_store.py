@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -6,12 +7,25 @@ from typing import Any
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-DATA_DIR = BASE_DIR / "data"
-DB_PATH = DATA_DIR / "reports.db"
+
+
+def _resolve_db_path() -> Path:
+    env_path = os.environ.get("REPORTS_DB_PATH", "")
+    if env_path:
+        return Path(env_path)
+    data_dir = BASE_DIR / "data"
+    return data_dir / "reports.db"
+
+
+DB_PATH = _resolve_db_path()
+
+
+def _resolve_data_dir() -> Path:
+    return DB_PATH.parent
 
 
 def init_db() -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    _resolve_data_dir().mkdir(parents=True, exist_ok=True)
 
     with _connect() as conn:
         conn.execute(

@@ -115,6 +115,24 @@ def main() -> None:
         if job.get("error_message"):
             print(f"  error: {job['error_message']}")
 
+    # bonus: today + filters
+    r = s.get(f"{BASE_URL}/api/reports/today")
+    today = _check(r, 200, "GET /api/reports/today")
+    print(f"  today reports: {len(today)}")
+
+    r = s.get(f"{BASE_URL}/api/reports?watchlist_id={wl_id}")
+    filtered = _check(r, 200, "GET /api/reports?watchlist_id=")
+    print(f"  reports by watchlist: {len(filtered)}")
+
+    r = s.get(f"{BASE_URL}/api/reports?ticker=NVDA")
+    ticker_reports = _check(r, 200, "GET /api/reports?ticker=NVDA")
+    print(f"  reports by ticker NVDA: {len(ticker_reports)}")
+
+    from datetime import date
+    r = s.get(f"{BASE_URL}/api/reports?date={date.today().isoformat()}")
+    dated = _check(r, 200, "GET /api/reports?date=today")
+    print(f"  reports by date: {len(dated)}")
+
     print("\n=== P0 SMOKE TEST PASSED ===")
 
 

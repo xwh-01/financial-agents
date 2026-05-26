@@ -60,8 +60,17 @@ var API = (function () {
     },
 
     reports: {
-      list: function (wlId) {
-        var path = "/api/reports" + (wlId ? "?watchlist_id=" + wlId : "");
+      list: function (opts) {
+        var qs = [];
+        if (opts && opts.watchlist_id) qs.push("watchlist_id=" + opts.watchlist_id);
+        if (opts && opts.ticker) qs.push("ticker=" + encodeURIComponent(opts.ticker));
+        if (opts && opts.date) qs.push("date=" + opts.date);
+        if (opts && opts.limit) qs.push("limit=" + opts.limit);
+        var path = "/api/reports" + (qs.length ? "?" + qs.join("&") : "");
+        return request("GET", path);
+      },
+      today: function (wlId) {
+        var path = "/api/reports/today" + (wlId ? "?watchlist_id=" + wlId : "");
         return request("GET", path);
       },
       get: function (id) { return request("GET", "/api/reports/" + id); },

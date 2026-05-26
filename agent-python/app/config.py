@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     market_base_url: str = ""
     market_api_key: str = ""
 
+    cors_allowed_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
+
     enable_report_scheduler: bool = False
     daily_report_hour: int = 8
     daily_report_minute: int = 0

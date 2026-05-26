@@ -41,10 +41,29 @@ def save_watchlist_report(
 def list_user_reports(
     user_id: int,
     watchlist_id: int | None = None,
+    ticker: str | None = None,
+    date_str: str | None = None,
+    limit: int = 20,
 ) -> list[ReportResponse]:
     return [
         ReportResponse(**item)
         for item in repository.list_reports(
+            user_id=user_id,
+            watchlist_id=watchlist_id,
+            ticker=ticker,
+            date_str=date_str,
+            limit=limit,
+        )
+    ]
+
+
+def list_user_reports_today(
+    user_id: int,
+    watchlist_id: int | None = None,
+) -> list[ReportResponse]:
+    return [
+        ReportResponse(**item)
+        for item in repository.list_reports_today(
             user_id=user_id,
             watchlist_id=watchlist_id,
         )

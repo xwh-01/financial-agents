@@ -1,0 +1,20 @@
+services:
+  backend:
+    build: ./agent-python
+    ports:
+      - "8010:8010"
+    env_file:
+      - .env
+    environment:
+      - REPORTS_DB_PATH=/data/reports.db
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

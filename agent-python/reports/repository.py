@@ -100,23 +100,74 @@ def save_report_items(report_id: int, items: list[dict[str, Any]]) -> None:
         conn.commit()
 
 
-def list_reports(user_id: int, watchlist_id: int | None = None) -> list[dict[str, Any]]:
+def list_reports(
+    user_id: int,
+    watchlist_id: int | None = None,
+    ticker: str | None = None,
+    date_str: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
     init_db()
     params: list[Any] = [user_id]
-    watchlist_filter = ""
+    filters = ["r.user_id = ?"]
+    joins = ""
+
     if watchlist_id is not None:
-        watchlist_filter = "AND watchlist_id = ?"
+        filters.append("r.watchlist_id = ?")
         params.append(watchlist_id)
+
+    if ticker is not None and ticker.strip():
+        joins = " LEFT JOIN report_items ri ON r.id = ri.report_id"
+        filters.append("ri.tickers LIKE ?")
+        params.append(f"%{ticker.strip().upper()}%")
+
+    if date_str is not None and date_str.strip():
+        filters.append("date(r.created_at) = ?")
+        params.append(date_str.strip())
+
+    where_clause = " AND ".join(filters)
+    safe_limit = max(1, min(limit, 100))
 
     with _connect() as conn:
         rows = conn.execute(
             f"""
-            SELECT id, user_id, watchlist_id, title, query, summary, risk_level,
-                   report_type, compliance_status, created_at
-            FROM reports
-            WHERE user_id = ?
-            {watchlist_filter}
-            ORDER BY created_at DESC, id DESC
+            SELECT DISTINCT r.id, r.user_id, r.watchlist_id, r.title, r.query,
+                   r.summary, r.risk_level, r.report_type, r.compliance_status,
+                   r.created_at
+            FROM reports r{joins}
+            WHERE {where_clause}
+            ORDER BY r.created_at DESC, r.id DESC
+            LIMIT ?
+            """,
+            params + [safe_limit],
+        ).fetchall()
+
+    return [_report_row_to_dict(row) for row in rows]
+
+
+def list_reports_today(
+    user_id: int,
+    watchlist_id: int | None = None,
+) -> list[dict[str, Any]]:
+    init_db()
+    params: list[Any] = [user_id]
+    filters = ["r.user_id = ?", "date(r.created_at) = date('now', 'localtime')"]
+
+    if watchlist_id is not None:
+        filters.append("r.watchlist_id = ?")
+        params.append(watchlist_id)
+
+    where_clause = " AND ".join(filters)
+
+    with _connect() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT r.id, r.user_id, r.watchlist_id, r.title, r.query,
+                   r.summary, r.risk_level, r.report_type, r.compliance_status,
+                   r.created_at
+            FROM reports r
+            WHERE {where_clause}
+            ORDER BY r.created_at DESC, r.id DESC
             """,
             params,
         ).fetchall()
