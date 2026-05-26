@@ -1,3 +1,8 @@
+"""Market Pulse Agent — legacy/internal API routes.
+
+Product main entry: Watchlist + Report Job → LangGraph Market Pulse.
+These endpoints remain functional but are not the primary user path.
+"""
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel

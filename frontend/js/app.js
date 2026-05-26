@@ -584,7 +584,7 @@ var App = (function () {
                 '<div style="margin-top:4px;font-size:12px;color:var(--muted-2)">risk: ' + esc(item.risk_level || "?") + ' | published: ' + esc(item.published_at || "?") + ' | score: ' + esc(item.relevance_score || "?") + '</div>' +
                 '</div>';
             }).join("")
-          : '<div class="empty">No structured news sources available.</div>',
+          : '<div class="empty">暂无结构化新闻来源，请检查报告保存时是否写入了 report_items。</div>',
         '</div>',
       ].join("");
     } catch (e) { showError("Failed to load: " + e.message); }
