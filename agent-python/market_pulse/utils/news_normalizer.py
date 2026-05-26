@@ -28,7 +28,7 @@ def normalize_title(title: str) -> str:
     text = title.lower().strip()
     text = re.sub(r"\s+", " ", text)
     text = re.sub(r"[^a-z0-9 ]", "", text)
-    text = text.strip()
+    text = re.sub(r"\s+", " ", text).strip()
     return text
 
 

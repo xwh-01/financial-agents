@@ -47,19 +47,54 @@ agent-python/
 │   └── api/
 │       ├── health.py
 │       ├── market_pulse.py
-│       └── reports.py
+│       ├── reports.py
+│       ├── watchlists.py
+│       ├── report_jobs.py
+│       └── auth.py
+├── auth/
+│   ├── dependencies.py
+│   ├── repository.py
+│   ├── schemas.py
+│   ├── security.py
+│   └── service.py
+├── watchlists/
+│   └── service.py
+├── report_jobs/
+│   ├── repository.py
+│   ├── scheduler.py
+│   ├── schemas.py
+│   ├── service.py
+│   └── worker.py
+├── reports/
+│   ├── repository.py
+│   ├── schemas.py
+│   └── service.py
 ├── market_pulse/
 │   ├── graph.py
 │   ├── state.py
 │   ├── service.py
 │   ├── nodes/
 │   ├── analyzers/
+│   ├── filters/
+│   │   └── news_filter.py
 │   ├── rankers/
+│   │   ├── news_ranker.py
+│   │   └── source_weight.py
+│   ├── utils/
+│   │   └── news_normalizer.py
+│   ├── workflows/
 │   ├── schemas.py
 │   └── repository.py
 ├── clients/
 ├── storage/
+│   ├── report_store.py
+│   └── watchlist_store.py
 ├── safety/
+├── scripts/
+│   ├── smoke_test.py
+│   ├── verify_closed_loop.py
+│   ├── check_news_quality.py
+│   └── check_rss_sources.py
 └── docs/
 ```
 
