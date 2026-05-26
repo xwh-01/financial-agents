@@ -224,6 +224,8 @@ def _ensure_reports_columns(conn: sqlite3.Connection) -> None:
         "watchlist_id": "INTEGER",
         "title": "TEXT",
         "report_type": "TEXT DEFAULT 'market_pulse'",
+        "compliance_status": "TEXT DEFAULT 'safe'",
+        "disclaimer": "TEXT",
     }
     for name, definition in columns.items():
         if name not in existing:

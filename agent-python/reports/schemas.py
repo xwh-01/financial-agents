@@ -10,6 +10,7 @@ class ReportResponse(BaseModel):
     summary: str | None = None
     risk_level: str | None = None
     report_type: str | None = None
+    compliance_status: str | None = None
     created_at: str | None = None
 
 
@@ -31,3 +32,4 @@ class ReportItemResponse(BaseModel):
 class ReportDetailResponse(BaseModel):
     report: ReportResponse
     items: list[ReportItemResponse]
+    disclaimer: str | None = None

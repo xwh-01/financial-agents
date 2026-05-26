@@ -13,6 +13,8 @@ def save_report(
     risk_level: str | None,
     report_type: str,
     report_json: dict,
+    compliance_status: str = "safe",
+    disclaimer: str = "",
 ) -> int:
     init_db()
     payload = json.dumps(report_json, ensure_ascii=False)
@@ -29,9 +31,11 @@ def save_report(
                 risk_level,
                 report_type,
                 report_json,
+                compliance_status,
+                disclaimer,
                 created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """,
             (
                 user_id,
@@ -42,6 +46,8 @@ def save_report(
                 risk_level or "unknown",
                 report_type or "manual",
                 payload,
+                compliance_status or "safe",
+                disclaimer or "",
             ),
         )
         conn.commit()
@@ -106,7 +112,7 @@ def list_reports(user_id: int, watchlist_id: int | None = None) -> list[dict[str
         rows = conn.execute(
             f"""
             SELECT id, user_id, watchlist_id, title, query, summary, risk_level,
-                   report_type, created_at
+                   report_type, compliance_status, created_at
             FROM reports
             WHERE user_id = ?
             {watchlist_filter}
@@ -125,7 +131,7 @@ def get_report_by_id(user_id: int, report_id: int) -> dict[str, Any] | None:
         row = conn.execute(
             """
             SELECT id, user_id, watchlist_id, title, query, summary, risk_level,
-                   report_type, report_json, created_at
+                   report_type, report_json, compliance_status, disclaimer, created_at
             FROM reports
             WHERE id = ? AND user_id = ?
             """,
@@ -160,7 +166,7 @@ def list_report_items(report_id: int) -> list[dict[str, Any]]:
 
 
 def _report_row_to_dict(row) -> dict[str, Any]:
-    return {
+    result = {
         "id": row["id"],
         "user_id": row["user_id"],
         "watchlist_id": row["watchlist_id"],
@@ -171,6 +177,11 @@ def _report_row_to_dict(row) -> dict[str, Any]:
         "report_type": row["report_type"],
         "created_at": row["created_at"],
     }
+    if "compliance_status" in row.keys():
+        result["compliance_status"] = row["compliance_status"]
+    if "disclaimer" in row.keys():
+        result["disclaimer"] = row["disclaimer"]
+    return result
 
 
 def _item_row_to_dict(row) -> dict[str, Any]:

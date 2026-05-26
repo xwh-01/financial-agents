@@ -93,6 +93,8 @@ class NewsItem(BaseModel):
     matched_events: list[str] = Field(default_factory=list)
     source_weight: float = 0.5
     freshness_score: float = 0.0
+    negative_score: float = 0.0
+    negative_reasons: list[str] = Field(default_factory=list)
 
 
 class SearchNewsRequest(BaseModel):

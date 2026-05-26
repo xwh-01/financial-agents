@@ -101,6 +101,9 @@ def main() -> None:
         report = _check(r, 200, f"GET /api/reports/{report_id}")
         print(f"  report title: {report.get('title', 'N/A')}")
         print(f"  report risk_level: {report.get('risk_level', 'N/A')}")
+        print(f"  compliance_status: {report.get('report', {}).get('compliance_status', '?')}")
+        disp = report.get("disclaimer")
+        print(f"  disclaimer present: {bool(disp)}")
 
         r = s.get(f"{BASE_URL}/api/reports/{report_id}/items")
         items = _check(r, 200, f"GET /api/reports/{report_id}/items")

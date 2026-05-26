@@ -113,6 +113,79 @@ BAD_TERMS = [
     "game review",
 ]
 
+STRONG_NEGATIVE_TERMS = [
+    "sports",
+    "movie",
+    "celebrity",
+    "recipe",
+    "cooking",
+    "fishing",
+    "pet",
+    "dog",
+    "cat",
+    "dog show",
+    "soccer",
+    "basketball",
+    "football",
+    "streaming",
+    "video game",
+    "gaming discount",
+    "essential oil",
+    "cooking oil",
+    "olive oil",
+    "gardening",
+    "farmers market",
+]
+
+WEAK_NEGATIVE_TERMS = [
+    "store opening",
+    "opens new store",
+    "retail store",
+    "flagship store",
+    "product discount",
+    "coupon",
+    "shopping event",
+    "hiring event",
+    "office opening",
+    "campus opening",
+    "local event",
+    "local discount",
+    "blog opinion",
+    "rumor",
+    "gossip",
+    "jewelry fashion",
+    "jewelry sale",
+    "local fuel station",
+    "gas station discount",
+    "boutique",
+]
+
+QUERY_BOOST_TERMS: dict[str, list[str]] = {
+    "earnings": [
+        "earnings", "revenue", "profit", "guidance", "quarterly",
+        "fiscal", "results", "income", "eps",
+    ],
+    "macro": [
+        "rate decision", "inflation", "cpi", "fomc", "powell",
+        "yields", "treasury", "central bank", "tightening", "easing",
+    ],
+    "commodity": [
+        "gold price", "bullion", "safe haven", "dollar", "yields",
+        "supply", "inventory", "crude", "brent", "wti",
+    ],
+    "tech_ai": [
+        "gpu", "ai accelerator", "data center", "semiconductor",
+        "chip", "cuda", "foundry", "packaging",
+    ],
+}
+
+QUERY_WEAK_NEGATIVE_TERMS: dict[str, list[str]] = {
+    "earnings": ["store opening", "retail store", "flagship store", "store"],
+    "macro": ["local bank", "local finance", "savings account"],
+    "commodity": ["jewelry sale", "jewelry fashion", "cooking", "fashion"],
+    "tech_ai": ["gaming discount", "gaming sale", "video game"],
+}
+
 
 def contains_keyword(text: str, keyword: str) -> bool:
     keyword = keyword.strip().lower()
@@ -167,16 +240,20 @@ def score_news_item(
         score += min(4, len(market_hits))
         reasons.append("market_terms=" + ",".join(market_hits[:5]))
 
-    bad_hits = [term for term in BAD_TERMS if contains_keyword(text, term)]
-    if bad_hits:
-        score -= 5
-        reasons.append("bad_terms=" + ",".join(bad_hits[:3]))
-
-    if len(item.content or "") < 60:
-        score -= 1
-        reasons.append("content_too_short")
-
     return score, reasons, matched_tickers, matched_topics, matched_events
+
+
+def _classify_query(query: str) -> str:
+    q = query.lower()
+    if any(kw in q for kw in ("earnings", "revenue", "profit", "results")):
+        return "earnings"
+    if any(kw in q for kw in ("interest rate", "fed", "inflation", "cpi", "fomc")):
+        return "macro"
+    if any(kw in q for kw in ("gold", "oil", "commodity", "crude")):
+        return "commodity"
+    if any(kw in q for kw in ("nvidia", "ai chip", "chip", "semiconductor", "gpu")):
+        return "tech_ai"
+    return "general"
 
 
 def filter_and_rank_news(
@@ -186,9 +263,46 @@ def filter_and_rank_news(
 ) -> list[NewsItem]:
     ranked: list[NewsItem] = []
     query_matched: list[NewsItem] = []
+    query_type = _classify_query(query)
 
     for item in items:
         score, reasons, tickers, topics, events = score_news_item(item)
+        text = f"{item.title} {item.content}".lower()
+
+        neg_score = 0.0
+        neg_reasons: list[str] = []
+
+        boost_terms = QUERY_BOOST_TERMS.get(query_type, [])
+        boost_hits = [t for t in boost_terms if contains_keyword(text, t)]
+        if boost_hits:
+            boost = min(6, len(boost_hits) * 2)
+            score += boost
+            reasons.append(f"query_boost={','.join(boost_hits[:3])}")
+
+        for term in STRONG_NEGATIVE_TERMS:
+            if contains_keyword(text, term):
+                neg_score -= 5
+                neg_reasons.append(f"strong_neg:{term}")
+
+        for term in WEAK_NEGATIVE_TERMS:
+            if contains_keyword(text, term):
+                neg_score -= 2
+                neg_reasons.append(f"weak_neg:{term}")
+
+        query_weak_terms = QUERY_WEAK_NEGATIVE_TERMS.get(query_type, [])
+        for term in query_weak_terms:
+            if contains_keyword(text, term):
+                punch = -3 if query_type in ("earnings", "macro") else -2
+                neg_score += punch
+                neg_reasons.append(f"query_neg:{term}")
+
+        bad_hits = [term for term in BAD_TERMS if contains_keyword(text, term)]
+        if bad_hits:
+            neg_score -= 5
+            neg_reasons.append("bad_terms=" + ",".join(bad_hits[:3]))
+
+        score += neg_score
+
         fresh_score = freshness_score(item)
         fresh_reason = _freshness_reason(item)
         score += fresh_score
@@ -199,6 +313,23 @@ def filter_and_rank_news(
         item.freshness_score = fresh_score
         score += sw * 5
         reasons.append(f"source_weight={sw:.2f}")
+
+        has_strong_keyword = len(tickers) > 0 or len(boost_hits) > 0
+        if sw <= 0.5 and not has_strong_keyword:
+            penalty = -2
+            score += penalty
+            neg_score += penalty
+            neg_reasons.append("low_source_no_signal")
+
+        item.negative_score = neg_score
+        item.negative_reasons = neg_reasons
+
+        if neg_reasons:
+            reasons.append(f"negative={','.join(neg_reasons[:3])}")
+
+        if len(item.content or "") < 60:
+            score -= 1
+            reasons.append("content_too_short")
 
         if parse_news_time(item.published_at) and not is_recent_news(
             item,

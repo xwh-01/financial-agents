@@ -1,0 +1,849 @@
+{
+  "generated_at": "2026-05-26T08:24:21.679548+00:00",
+  "dataset_path": "D:\\desk top\\agent\\market-impact-agent-v2\\agent-python\\evals\\ranker_eval_dataset.jsonl",
+  "overall": {
+    "queries_evaluated": 5,
+    "avg_precision_at_5": 1.0,
+    "avg_precision_at_10": 0.8056,
+    "avg_important_recall_at_10": 1.0,
+    "avg_irrelevant_rate_at_10": 0.1194
+  },
+  "warnings": {},
+  "queries": [
+    {
+      "query": "Apple earnings",
+      "total_items": 11,
+      "precision_at_5": 1.0,
+      "precision_at_10": 0.75,
+      "important_recall_at_10": 1.0,
+      "irrelevant_rate_at_10": 0.0,
+      "top_ranked": [
+        {
+          "rank": 1,
+          "label": "related",
+          "title": "Apple stock rises 4 percent after strong earnings beat",
+          "relevance_score": 32.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=earnings",
+            "matched_tickers=AAPL",
+            "matched_topics=earnings",
+            "market_terms=stock,shares,earnings,guidance",
+            "query_boost=earnings,guidance,quarterly",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=apple,earnings"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 2,
+          "label": "important",
+          "title": "Apple to report earnings amid tariff concerns and China slowdown fears",
+          "relevance_score": 28.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=earnings",
+            "matched_tickers=AAPL",
+            "matched_topics=earnings",
+            "market_terms=earnings,revenue",
+            "query_boost=earnings,revenue",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=apple,earnings"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 3,
+          "label": "important",
+          "title": "Apple CEO Tim Cook discusses AI strategy during earnings call",
+          "relevance_score": 24.75,
+          "source_weight": 0.9,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=earnings",
+            "matched_tickers=AAPL",
+            "matched_topics=earnings",
+            "market_terms=earnings",
+            "query_boost=earnings",
+            "freshness=within_7d",
+            "source_weight=0.90",
+            "matched_query=apple,earnings"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 4,
+          "label": "related",
+          "title": "iPhone shipments in China rebound ahead of earnings",
+          "relevance_score": 24.25,
+          "source_weight": 0.8,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=earnings",
+            "matched_tickers=AAPL",
+            "matched_topics=earnings",
+            "market_terms=earnings",
+            "query_boost=earnings",
+            "freshness=within_7d",
+            "source_weight=0.80",
+            "matched_query=apple,earnings"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 5,
+          "label": "important",
+          "title": "Apple reports record Q2 revenue driven by iPhone and services growth",
+          "relevance_score": 23.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=earnings",
+            "matched_tickers=AAPL",
+            "matched_topics=earnings",
+            "market_terms=revenue",
+            "query_boost=revenue,quarterly",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=apple"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 6,
+          "label": "important",
+          "title": "Apple services revenue hits all-time high of $25 billion in holiday quarter",
+          "relevance_score": 19.25,
+          "source_weight": 0.8,
+          "freshness_score": 0.25,
+          "negative_score": -3.0,
+          "relevance_reasons": [
+            "matched_events=earnings",
+            "matched_tickers=AAPL",
+            "matched_topics=earnings",
+            "market_terms=revenue",
+            "query_boost=revenue,quarterly",
+            "freshness=within_7d",
+            "source_weight=0.80",
+            "negative=query_neg:store",
+            "matched_query=apple"
+          ],
+          "negative_reasons": [
+            "query_neg:store"
+          ]
+        },
+        {
+          "rank": 7,
+          "label": "weakly_related",
+          "title": "Former Apple employee opens third-party repair shop in San Francisco",
+          "relevance_score": 12.5,
+          "source_weight": 0.85,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_tickers=AAPL",
+            "freshness=within_7d",
+            "source_weight=0.85",
+            "matched_query=apple"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 8,
+          "label": "weakly_related",
+          "title": "Apple opens stunning new flagship store in Mumbai",
+          "relevance_score": 4.0,
+          "source_weight": 0.75,
+          "freshness_score": 0.25,
+          "negative_score": -8.0,
+          "relevance_reasons": [
+            "matched_tickers=AAPL",
+            "freshness=within_7d",
+            "source_weight=0.75",
+            "negative=weak_neg:flagship store,query_neg:flagship store,query_neg:store",
+            "matched_query=apple"
+          ],
+          "negative_reasons": [
+            "weak_neg:flagship store",
+            "query_neg:flagship store",
+            "query_neg:store"
+          ]
+        }
+      ],
+      "false_positives": [],
+      "missed_important": []
+    },
+    {
+      "query": "Fed interest rate",
+      "total_items": 11,
+      "precision_at_5": 1.0,
+      "precision_at_10": 0.875,
+      "important_recall_at_10": 1.0,
+      "irrelevant_rate_at_10": 0.0,
+      "top_ranked": [
+        {
+          "rank": 1,
+          "label": "important",
+          "title": "Fed Chair Powell signals potential rate cut in September",
+          "relevance_score": 26.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=macro",
+            "matched_topics=fed_rates",
+            "market_terms=fed,inflation",
+            "query_boost=inflation,powell,central bank",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=fed,rate"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 2,
+          "label": "related",
+          "title": "US Treasury yields decline following Fed decision",
+          "relevance_score": 24.75,
+          "source_weight": 0.9,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=macro",
+            "matched_topics=fed_rates",
+            "market_terms=market,fed,treasury",
+            "query_boost=yields,treasury",
+            "freshness=within_7d",
+            "source_weight=0.90",
+            "matched_query=fed,rate"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 3,
+          "label": "important",
+          "title": "Federal Reserve holds interest rates steady at 5.25-5.50 percent",
+          "relevance_score": 22.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=macro",
+            "matched_topics=fed_rates",
+            "market_terms=inflation,interest rate",
+            "query_boost=inflation",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=interest,rate"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 4,
+          "label": "important",
+          "title": "Dollar strengthens against euro after hawkish Fed comments",
+          "relevance_score": 21.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=macro",
+            "matched_topics=fed_rates",
+            "market_terms=fed",
+            "query_boost=fomc",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=fed,rate"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 5,
+          "label": "important",
+          "title": "Fed dot plot shows median projection of two cuts by end of 2027",
+          "relevance_score": 21.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=macro",
+            "matched_topics=fed_rates",
+            "market_terms=fed",
+            "query_boost=fomc",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=fed,rate"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 6,
+          "label": "important",
+          "title": "Wall Street banks slash Fed rate cut forecasts after strong jobs data",
+          "relevance_score": 20.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=macro",
+            "matched_topics=fed_rates",
+            "market_terms=forecast,fed",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=fed,rate"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 7,
+          "label": "related",
+          "title": "Mortgage rates expected to ease if Fed cuts borrowing costs",
+          "relevance_score": 18.25,
+          "source_weight": 0.8,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=macro",
+            "matched_topics=fed_rates",
+            "market_terms=fed",
+            "freshness=within_7d",
+            "source_weight=0.80",
+            "matched_query=fed,rate"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 8,
+          "label": "weakly_related",
+          "title": "Bank CEO says customers are waiting for lower rates before borrowing",
+          "relevance_score": 14.5,
+          "source_weight": 0.85,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=macro",
+            "matched_topics=fed_rates",
+            "market_terms=interest rate",
+            "freshness=within_7d",
+            "source_weight=0.85",
+            "matched_query=interest"
+          ],
+          "negative_reasons": []
+        }
+      ],
+      "false_positives": [],
+      "missed_important": []
+    },
+    {
+      "query": "NVIDIA AI chips",
+      "total_items": 12,
+      "precision_at_5": 1.0,
+      "precision_at_10": 0.75,
+      "important_recall_at_10": 1.0,
+      "irrelevant_rate_at_10": 0.25,
+      "top_ranked": [
+        {
+          "rank": 1,
+          "label": "important",
+          "title": "TSMC to expand advanced packaging for Nvidia AI chips",
+          "relevance_score": 27.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_tickers=NVDA",
+            "matched_topics=ai_chips",
+            "query_boost=chip,packaging",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=nvidia ai chips,nvidia,chips"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 2,
+          "label": "related",
+          "title": "AMD launches new GPU to compete with Nvidia in AI market",
+          "relevance_score": 23.75,
+          "source_weight": 0.9,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_tickers=NVDA,AMD",
+            "matched_topics=ai_chips",
+            "market_terms=market",
+            "query_boost=gpu,data center",
+            "freshness=within_7d",
+            "source_weight=0.90",
+            "matched_query=nvidia"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 3,
+          "label": "important",
+          "title": "Nvidia announces new AI chip platform for data centers",
+          "relevance_score": 21.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_tickers=NVDA",
+            "matched_topics=ai_chips",
+            "query_boost=ai accelerator,data center,chip",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=nvidia"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 4,
+          "label": "related",
+          "title": "Semiconductor stocks rally on AI chip demand optimism",
+          "relevance_score": 19.25,
+          "source_weight": 0.8,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_tickers=NVDA",
+            "matched_topics=ai_chips",
+            "market_terms=investors",
+            "query_boost=semiconductor,chip",
+            "freshness=within_7d",
+            "source_weight=0.80",
+            "matched_query=chips"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 5,
+          "label": "important",
+          "title": "Nvidia CEO keynote at Computex to unveil next-gen AI data center architecture",
+          "relevance_score": 19.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_tickers=NVDA",
+            "matched_topics=ai_chips",
+            "query_boost=gpu,data center",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=nvidia"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 6,
+          "label": "irrelevant",
+          "title": "Popular GPU brand slashes prices for Black Friday gaming PCs",
+          "relevance_score": 16.0,
+          "source_weight": 0.75,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_tickers=NVDA",
+            "matched_topics=ai_chips",
+            "query_boost=gpu",
+            "freshness=within_7d",
+            "source_weight=0.75",
+            "matched_query=nvidia"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 7,
+          "label": "related",
+          "title": "CUDA developer conference announces new libraries for scientific computing",
+          "relevance_score": 15.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_tickers=NVDA",
+            "query_boost=cuda",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=nvidia"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 8,
+          "label": "irrelevant",
+          "title": "How to build a budget gaming PC under $1000 with Nvidia graphics",
+          "relevance_score": 10.75,
+          "source_weight": 0.5,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_tickers=NVDA",
+            "freshness=within_7d",
+            "source_weight=0.50",
+            "matched_query=nvidia"
+          ],
+          "negative_reasons": []
+        }
+      ],
+      "false_positives": [],
+      "missed_important": []
+    },
+    {
+      "query": "gold market",
+      "total_items": 11,
+      "precision_at_5": 1.0,
+      "precision_at_10": 0.875,
+      "important_recall_at_10": 1.0,
+      "irrelevant_rate_at_10": 0.125,
+      "top_ranked": [
+        {
+          "rank": 1,
+          "label": "important",
+          "title": "Gold prices surge above $3400 per ounce on geopolitical tensions",
+          "relevance_score": 21.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=geopolitical,commodities",
+            "matched_topics=gold",
+            "market_terms=investors,gold",
+            "query_boost=gold price",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=gold"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 2,
+          "label": "related",
+          "title": "Gold miners' stocks rally alongside precious metal prices",
+          "relevance_score": 17.75,
+          "source_weight": 0.9,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=gold",
+            "market_terms=shares,gold",
+            "query_boost=gold price",
+            "freshness=within_7d",
+            "source_weight=0.90",
+            "matched_query=gold"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 3,
+          "label": "important",
+          "title": "Gold-backed digital tokens gain traction as alternative to physical bullion",
+          "relevance_score": 17.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=gold",
+            "market_terms=gold",
+            "query_boost=bullion",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=gold"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 4,
+          "label": "important",
+          "title": "Gold ETFs see largest weekly inflows in three years",
+          "relevance_score": 16.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=gold",
+            "market_terms=investors,gold",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=gold"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 5,
+          "label": "important",
+          "title": "Central banks continue record gold purchases in 2026",
+          "relevance_score": 15.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=gold",
+            "market_terms=gold",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=gold"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 6,
+          "label": "important",
+          "title": "Central bank of Poland adds 20 tonnes of gold to reserves in May",
+          "relevance_score": 14.75,
+          "source_weight": 0.9,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=gold",
+            "market_terms=gold",
+            "freshness=within_7d",
+            "source_weight=0.90",
+            "matched_query=gold"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 7,
+          "label": "irrelevant",
+          "title": "Luxury jewelry brand debuts new gold collection for summer 2026",
+          "relevance_score": 14.5,
+          "source_weight": 0.85,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=gold",
+            "market_terms=gold",
+            "freshness=within_7d",
+            "source_weight=0.85",
+            "matched_query=gold"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 8,
+          "label": "related",
+          "title": "Silver prices also climb, tracking gold's upward momentum",
+          "relevance_score": 14.25,
+          "source_weight": 0.8,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=gold",
+            "market_terms=gold",
+            "freshness=within_7d",
+            "source_weight=0.80",
+            "matched_query=gold"
+          ],
+          "negative_reasons": []
+        }
+      ],
+      "false_positives": [],
+      "missed_important": []
+    },
+    {
+      "query": "oil prices",
+      "total_items": 11,
+      "precision_at_5": 1.0,
+      "precision_at_10": 0.7778,
+      "important_recall_at_10": 1.0,
+      "irrelevant_rate_at_10": 0.2222,
+      "top_ranked": [
+        {
+          "rank": 1,
+          "label": "related",
+          "title": "Oil majors report strong Q2 profits on elevated crude prices",
+          "relevance_score": 31.75,
+          "source_weight": 0.9,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities,earnings",
+            "matched_topics=oil,earnings",
+            "market_terms=earnings,profit,oil",
+            "query_boost=crude",
+            "freshness=within_7d",
+            "source_weight=0.90",
+            "matched_query=oil prices,oil,prices"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 2,
+          "label": "important",
+          "title": "US crude inventories drop unexpectedly, boosting oil prices",
+          "relevance_score": 27.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=oil",
+            "market_terms=oil",
+            "query_boost=crude,wti",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=oil prices,oil,prices"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 3,
+          "label": "important",
+          "title": "Oil prices drop 3 percent as China economic data disappoints",
+          "relevance_score": 26.75,
+          "source_weight": 0.9,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=oil",
+            "market_terms=oil",
+            "query_boost=crude,brent",
+            "freshness=within_7d",
+            "source_weight=0.90",
+            "matched_query=oil prices,oil,prices"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 4,
+          "label": "important",
+          "title": "OPEC extends production cuts as oil prices stabilize above $80",
+          "relevance_score": 25.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=oil",
+            "market_terms=oil",
+            "query_boost=crude",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=oil prices,oil,prices"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 5,
+          "label": "related",
+          "title": "Energy sector leads S&P 500 gains on rising crude prices",
+          "relevance_score": 24.5,
+          "source_weight": 0.85,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=oil",
+            "market_terms=oil",
+            "query_boost=crude",
+            "freshness=within_7d",
+            "source_weight=0.85",
+            "matched_query=oil prices,oil,prices"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 6,
+          "label": "irrelevant",
+          "title": "Olive oil prices surge on Mediterranean drought fears",
+          "relevance_score": 18.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": -5.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=oil",
+            "market_terms=oil",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "negative=strong_neg:olive oil",
+            "matched_query=oil prices,oil,prices"
+          ],
+          "negative_reasons": [
+            "strong_neg:olive oil"
+          ]
+        },
+        {
+          "rank": 7,
+          "label": "related",
+          "title": "Gasoline prices at the pump remain elevated despite crude dip",
+          "relevance_score": 17.25,
+          "source_weight": 0.8,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=oil",
+            "query_boost=supply,crude",
+            "freshness=within_7d",
+            "source_weight=0.80",
+            "matched_query=prices"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 8,
+          "label": "important",
+          "title": "US shale producers signal cautious output growth despite higher crude prices",
+          "relevance_score": 17.25,
+          "source_weight": 1.0,
+          "freshness_score": 0.25,
+          "negative_score": 0.0,
+          "relevance_reasons": [
+            "matched_events=commodities",
+            "matched_topics=oil",
+            "market_terms=investors",
+            "query_boost=crude",
+            "freshness=within_7d",
+            "source_weight=1.00",
+            "matched_query=prices"
+          ],
+          "negative_reasons": []
+        },
+        {
+          "rank": 9,
+          "label": "irrelevant",
+          "title": "Cooking oil import tariffs raised by India to protect domestic farmers",
+          "relevance_score": 11.5,
+          "source_weight": 0.85,
+          "freshness_score": 0.25,
+          "negative_score": -12.0,
+          "relevance_reasons": [
+            "matched_events=macro,geopolitical,commodities",
+            "matched_topics=fed_rates,oil",
+            "market_terms=inflation,oil",
+            "freshness=within_7d",
+            "source_weight=0.85",
+            "negative=strong_neg:cooking,strong_neg:cooking oil,query_neg:cooking",
+            "matched_query=oil"
+          ],
+          "negative_reasons": [
+            "strong_neg:cooking",
+            "strong_neg:cooking oil",
+            "query_neg:cooking"
+          ]
+        }
+      ],
+      "false_positives": [],
+      "missed_important": []
+    }
+  ]
+}

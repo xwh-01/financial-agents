@@ -1,7 +1,11 @@
+import logging
 from typing import Any
 
 from reports import repository
+from reports.guard import apply_report_guard
 from reports.schemas import ReportDetailResponse, ReportItemResponse, ReportResponse
+
+logger = logging.getLogger(__name__)
 
 
 def save_watchlist_report(
@@ -11,19 +15,25 @@ def save_watchlist_report(
     query: str,
     result: dict,
 ) -> int:
+    guarded = _apply_guard_safely(result)
+    compliance_status = guarded.get("compliance_status", "safe")
+    disclaimer = guarded.get("disclaimer", "")
+
     report_id = repository.save_report(
         user_id=user_id,
         watchlist_id=watchlist_id,
         title=title,
         query=query,
-        summary=_extract_summary(result),
-        risk_level=_extract_risk_level(result),
+        summary=_extract_summary(guarded),
+        risk_level=_extract_risk_level(guarded),
         report_type="watchlist",
-        report_json=result,
+        report_json=guarded,
+        compliance_status=compliance_status,
+        disclaimer=disclaimer,
     )
     repository.save_report_items(
         report_id=report_id,
-        items=extract_report_items(result),
+        items=extract_report_items(guarded),
     )
     return report_id
 
@@ -47,11 +57,30 @@ def get_user_report_detail(user_id: int, report_id: int) -> ReportDetailResponse
         return None
 
     items = repository.list_report_items(report_id=report_id)
-    report.pop("report_json", None)
+    report_json = report.pop("report_json", None)
+    disclaimer = report.pop("disclaimer", None)
+    if report_json and not disclaimer:
+        disclaimer = report_json.get("disclaimer")
     return ReportDetailResponse(
         report=ReportResponse(**report),
         items=[ReportItemResponse(**item) for item in items],
+        disclaimer=disclaimer,
     )
+
+
+def _apply_guard_safely(result: dict) -> dict:
+    try:
+        return apply_report_guard(result)
+    except Exception:
+        logger.warning("report guard failed, attaching disclaimer only", exc_info=True)
+        result["disclaimer"] = (
+            "本报告由 AI 基于公开新闻信息生成，"
+            "仅用于信息整理、研究参考和风险提示，"
+            "不构成任何投资建议、买卖建议或收益承诺。"
+            "投资有风险，用户应自行判断并承担决策责任。"
+        )
+        result["compliance_status"] = "warning"
+        return result
 
 
 def list_user_report_items(user_id: int, report_id: int) -> list[ReportItemResponse] | None:

@@ -1,4 +1,4 @@
-# Financial Agents Python Service
+﻿# Financial Agents Python Service
 
 这是 Financial Agents 的 Python 服务。当前主链路是由 FastAPI 暴露接口、由 LangGraph 编排的财经新闻 Market Pulse Agent。
 
@@ -748,8 +748,117 @@ uvicorn app.main:app --host 127.0.0.1 --port 8010
 python -m report_jobs.worker
 ```
 
-不依赖 Celery / Redis / Kafka，纯 SQLite + asyncio。<｜end▁of▁thinking｜>
+不依赖 Celery / Redis / Kafka，纯 SQLite + asyncio。
 
-<｜｜DSML｜｜tool_calls>
-<｜｜DSML｜｜invoke name="todowrite">
-<｜｜DSML｜｜parameter name="todos" string="false">[{"priority":"high","content":"Read and understand existing report_jobs worker, service, repository","status":"completed"},{"priority":"high","content":"Rewrite worker.py: run_pending_jobs_once + run_worker_loop + __main__","status":"completed"},{"priority":"high","content":"Refactor run_job to accept already-claimed (running) state from worker","status":"completed"},{"priority":"high","content":"Add has_daily_job_today_for_watchlist dedup in repository + service","status":"completed"},{"priority":"high","content":"Rewrite scheduler.py with improved daily job creation (no worker loop)","status":"completed"},{"priority":"high","content":"Update app/main.py for conditional scheduler startup","status":"completed"},{"priority":"medium","content":"Add optional POST /api/report-jobs/run-pending-once endpoint","status":"completed"},{"priority":"medium","content":"Update smoke_test.py with --skip-run-job flag","status":"completed"},{"priority":"medium","content":"Update README.md with worker/scheduler docs","status":"completed"},{"priority":"high","content":"Run compileall and fix errors","status":"in_progress"}]
+## Ranker 质量评估
+
+ranker 排序质量通过小型离线标注集评估，不接入线上流程。
+
+### 数据集
+
+文件：`evals/ranker_eval_dataset.jsonl`，每行一条 JSON 标注样本：
+
+```json
+{
+  "query": "NVIDIA AI chips",
+  "title": "Nvidia announces new AI chip platform",
+  "description": "...",
+  "source_name": "Reuters",
+  "url": "https://example.com/news/1",
+  "published_at": "2026-05-20T10:00:00Z",
+  "label": "important"
+}
+```
+
+**label 含义：**
+
+| label | 含义 |
+|-------|------|
+| `important` | 与 query 高度相关，对市场有直接影响 |
+| `related` | 与 query 相关，值得关注 |
+| `weakly_related` | 弱相关，不在 top 也不影响评估指标 |
+| `irrelevant` | 不相关，应该被 ranker 过滤 |
+
+覆盖 5 个 query，数据集已扩充到 56+ 条（每个 query 11-12 条），刻意包含边界 case（关键词歧义、权威来源弱相关、未知来源强相关等）。
+
+### 评估指标
+
+- **Precision@5 / @10**：top 5/10 中 label 为 `important` 或 `related` 的比例
+- **Important Recall@10**：全部 `important` 样本有多少出现在 top 10
+- **Irrelevant Rate@10**：top 10 中 `irrelevant` 的比例
+
+### 运行方式
+
+```powershell
+cd agent-python
+python evals/ranker_eval.py
+```
+
+### Ranker 排序逻辑
+
+ranker 综合以下信号排序：
+
+1. **正向关键词**：ticker 匹配 (+4)、event 匹配 (+3)、topic 匹配 (+2)、market terms 匹配 (+1 each)
+2. **query-aware boost**：根据 query 类型（earnings/macro/commodity/tech_ai）加权领域专属词 (+2 each)
+3. **source_weight**：source_weight * 5 加入总分，Unknown source 且无强信号时额外降权 -2
+4. **freshness_score**：6h 内 +3、24h 内 +2、72h 内 +1、缺失 -> -1.5
+5. **负向降权**：
+   - strong negative（sports、movie、celebrity、recipe、cooking、pet 等）：-5
+   - weak negative（store opening、flagship store、coupon、blog opinion 等）：-2
+   - query-aware negative（如 Apple earnings 中 store/retail 词）：-3
+6. **query 匹配**：token 命中加分，忽略 stop words
+
+每条 ranked news 保留 `relevance_score`、`source_weight`、`freshness_score`、`negative_score`、`relevance_reasons`、`negative_reasons` 用于可解释性。
+
+eval 输出三份报告：
+- 终端：per-query 指标 + top ranked 详情 + warnings
+- `evals/ranker_eval_report.json`：结构化 JSON 报告，含所有得分和 reasons
+- `evals/ranker_eval_summary.csv`：CSV 简表，可直接导入 Excel/Google Sheets
+
+false positives 和 missed important 可用于反向优化 ranker 规则。
+
+### 说明
+
+当前只是小型离线评估脚本（56+ 条样本），用于量化 ranker 排序效果。rank 不代表投资预测能力。不引入机器学习框架或向量库。
+
+## 安全合规 Guard
+
+系统自动扫描报告内容，禁止输出投资建议、收益承诺或交易指令，并为每个报告附加免责声明。
+
+### 禁止表达
+
+中英文强制匹配，命中即标记 `unsafe`：
+
+| 中文 | 英文 |
+|------|------|
+| 建议买入 / 建议卖出 | buy recommendation / sell recommendation |
+| 强烈推荐买入 / 必须买入 | must buy / strong buy |
+| 必涨 / 稳赚 / 保证收益 | guaranteed return |
+| 无风险 / 目标价一定达到 | risk-free |
+| 马上入场 / 抄底 / 梭哈 / 满仓 | - |
+
+### compliance_status 含义
+
+| status | 含义 |
+|--------|------|
+| `safe` | 未检测到违规表达 |
+| `warning` | guard 扫描失败或仅轻微风险（默认追加 disclaimer） |
+| `unsafe` | 检测到明确的投资建议或收益承诺，前端应高亮提示 |
+
+### 免责声明
+
+每个报告自动附带固定免责声明：
+
+> 本报告由 AI 基于公开新闻信息生成，仅用于信息整理、研究参考和风险提示，不构成任何投资建议、买卖建议或收益承诺。投资有风险，用户应自行判断并承担决策责任。
+
+### API 响应
+
+`GET /api/reports/{id}` 返回：
+- `report.compliance_status`：当前合规状态
+- `disclaimer`：免责声明全文
+
+### 测试脚本
+
+```powershell
+python scripts/check_report_guard.py
+```
