@@ -862,3 +862,47 @@ false positives 和 missed important 可用于反向优化 ranker 规则。
 ```powershell
 python scripts/check_report_guard.py
 ```
+
+## 前端 (Frontend)
+
+前端为纯 HTML/JS SPA，无构建步骤，直接打开 `frontend/index.html` 或用任意 HTTP 服务器托管。
+
+### 启动方式
+
+```powershell
+# 方式 1：直接用浏览器打开
+start frontend/index.html
+
+# 方式 2：用 Python 简单 HTTP 服务器托管
+cd frontend
+python -m http.server 3000
+# 然后访问 http://127.0.0.1:3000
+```
+
+### 使用流程
+
+1. 启动后端：`uvicorn app.main:app --host 127.0.0.1 --port 8010`
+2. 打开前端页面
+3. 注册账号 → 登录
+4. 创建 Watchlist → 添加 item（ticker/topic/macro/commodity/custom）
+5. 创建 Report Job → 手动 Run Job
+6. 查看 Reports 列表 → 点击查看详情（含 compliance_status 和 disclaimer）
+
+### 页面路由
+
+| Hash | 页面 |
+|------|------|
+| `#login` | 登录页 |
+| `#register` | 注册页 |
+| `#watchlists` | Watchlist 管理（创建、查看列表） |
+| `#watchlist-detail/{id}` | Watchlist 详情（添加 item、创建 job） |
+| `#reports` | 报告列表（含 compliance_status） |
+| `#report-detail/{id}` | 报告详情（disclaimer、source items） |
+| `#jobs` | 报告任务列表（状态、手动 Run） |
+
+### 技术栈
+
+- 纯 HTML + CSS + Vanilla JavaScript（无框架）
+- Hash-based SPA routing
+- JWT token 存储在 localStorage
+- 后端 API 地址默认 `http://127.0.0.1:8010`（可通过页面手动修改）
