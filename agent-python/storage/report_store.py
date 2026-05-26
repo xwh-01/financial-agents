@@ -36,8 +36,8 @@ def init_db() -> None:
                 password_hash TEXT NOT NULL,
                 nickname TEXT,
                 status TEXT NOT NULL DEFAULT 'active',
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
@@ -47,8 +47,8 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
             """
@@ -61,7 +61,7 @@ def init_db() -> None:
                 symbol TEXT NOT NULL,
                 name TEXT,
                 note TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(watchlist_id, symbol),
                 FOREIGN KEY (watchlist_id) REFERENCES watchlists(id)
             )
@@ -80,9 +80,8 @@ def init_db() -> None:
                 topics TEXT,
                 source_name TEXT,
                 source_url TEXT,
-                published_at DATETIME,
+                published_at TEXT,
                 relevance_score REAL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (report_id) REFERENCES reports(id)
             )
             """
@@ -93,17 +92,17 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 watchlist_id INTEGER NOT NULL,
-                status TEXT NOT NULL,
-                job_type TEXT NOT NULL DEFAULT 'daily',
-                scheduled_for DATETIME,
-                started_at DATETIME,
-                finished_at DATETIME,
-                attempt_count INTEGER DEFAULT 0,
-                max_attempts INTEGER DEFAULT 3,
+                status TEXT NOT NULL DEFAULT 'pending',
+                job_type TEXT NOT NULL DEFAULT 'manual',
+                scheduled_for TEXT,
+                started_at TEXT,
+                finished_at TEXT,
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                max_attempts INTEGER NOT NULL DEFAULT 3,
                 error_message TEXT,
                 report_id INTEGER,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id),
                 FOREIGN KEY (watchlist_id) REFERENCES watchlists(id),
                 FOREIGN KEY (report_id) REFERENCES reports(id)
@@ -205,7 +204,7 @@ def _ensure_reports_columns(conn: sqlite3.Connection) -> None:
         "user_id": "INTEGER",
         "watchlist_id": "INTEGER",
         "title": "TEXT",
-        "report_type": "TEXT DEFAULT 'manual'",
+        "report_type": "TEXT DEFAULT 'market_pulse'",
     }
     for name, definition in columns.items():
         if name not in existing:

@@ -27,10 +27,10 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
-app.include_router(market_pulse_router)
-app.include_router(reports_router)
-app.include_router(watchlists_router)
-app.include_router(report_jobs_router)
+app.include_router(market_pulse_router, tags=["market_pulse"])
+app.include_router(reports_router, tags=["reports"])
+app.include_router(watchlists_router, tags=["watchlists"])
+app.include_router(report_jobs_router, tags=["report_jobs"])
 
 
 @app.on_event("startup")
