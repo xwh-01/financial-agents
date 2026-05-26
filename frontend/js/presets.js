@@ -107,18 +107,27 @@ var WATCHLIST_CATEGORIES = [
 var WATCHLIST_BUNDLES = [
   {
     name: "科技股日报",
+    desc: "核心科技公司 + AI/半导体 + 财报",
     keys: ["NVDA", "AMD", "AAPL", "MSFT", "AI chips", "semiconductor", "earnings"]
   },
   {
     name: "AI 半导体追踪",
+    desc: "芯片设计、制造、先进封装全覆盖",
     keys: ["NVIDIA", "AMD", "TSMC", "AI chips", "GPU", "data center", "HBM memory", "export controls"]
   },
   {
     name: "宏观与黄金",
+    desc: "利率、通胀、就业 + 避险资产",
     keys: ["Fed interest rate", "FOMC", "inflation", "CPI", "treasury yields", "US dollar index", "gold"]
   },
   {
     name: "原油与通胀",
+    desc: "原油供应、OPEC、美元指数",
     keys: ["oil prices", "Brent crude", "WTI crude", "OPEC", "oil inventories", "inflation", "US dollar index"]
+  },
+  {
+    name: "科技公司风险追踪",
+    desc: "反垄断、出口管制、诉讼、网安",
+    keys: ["antitrust", "export controls", "regulatory investigation", "lawsuit", "cybersecurity incident", "geopolitical risk"]
   }
 ];
