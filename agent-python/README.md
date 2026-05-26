@@ -139,3 +139,227 @@ Invoke-RestMethod `
   -ContentType "application/json" `
   -Body '{"query":"Nvidia AI chips","max_items":3}'
 ```
+
+## Auth And Watchlists
+
+Production deployments must set `JWT_SECRET` in the environment. The service has
+a local development fallback secret only so the app can run on a fresh machine.
+
+Register a user:
+
+```powershell
+$registerBody = @{
+  email = "alice@example.com"
+  password = "password123"
+  nickname = "Alice"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/auth/register" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $registerBody
+```
+
+Login and keep the bearer token:
+
+```powershell
+$loginBody = @{
+  email = "alice@example.com"
+  password = "password123"
+} | ConvertTo-Json
+
+$login = Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/auth/login" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$token = $login.access_token
+$headers = @{ Authorization = "Bearer $token" }
+```
+
+Get current user:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/auth/me" `
+  -Method Get `
+  -Headers $headers
+```
+
+Create a watchlist with Bearer token:
+
+```powershell
+$watchlistBody = @{ name = "AI Stocks" } | ConvertTo-Json
+
+$watchlist = Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/watchlists" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Headers $headers `
+  -Body $watchlistBody
+```
+
+Add a watchlist item with Bearer token:
+
+```powershell
+$itemBody = @{
+  symbol = "NVDA"
+  name = "NVIDIA"
+  note = "AI chips"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/watchlists/$($watchlist.id)/items" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Headers $headers `
+  -Body $itemBody
+```
+
+Reports compatibility note: old manually generated reports can remain with
+`user_id = NULL`. Watchlist-generated reports are saved with both `user_id` and
+`watchlist_id`.
+
+## User Reports And Report Items
+
+Watchlist-generated Market Pulse reports are now bound to both the authenticated
+user and the source watchlist:
+
+- `reports.user_id` identifies the owner.
+- `reports.watchlist_id` identifies the watchlist used to build the query.
+- `reports.report_json` stores the complete Market Pulse result.
+- `report_items` stores one row per analyzed news item so the UI can show source
+  title, URL, published time, tickers, topics, relevance score, risk, and impact
+  details without reparsing the full report payload.
+
+Historical reports are preserved. If an older `reports` table is present, startup
+adds missing columns with `ALTER TABLE` and keeps existing rows.
+
+Generate a watchlist report with Bearer token:
+
+```powershell
+$generateBody = @{ max_items = 5 } | ConvertTo-Json
+
+$report = Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/watchlists/$($watchlist.id)/reports/generate" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Headers $headers `
+  -Body $generateBody
+
+$reportId = $report.report_id
+```
+
+Query current user's reports:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/reports" `
+  -Method Get `
+  -Headers $headers
+```
+
+Query reports for one watchlist:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/reports?watchlist_id=$($watchlist.id)" `
+  -Method Get `
+  -Headers $headers
+```
+
+Query report detail with source items:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/reports/$reportId" `
+  -Method Get `
+  -Headers $headers
+```
+
+Query only source item details:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/reports/$reportId/items" `
+  -Method Get `
+  -Headers $headers
+```
+
+## Report Jobs And Daily Scheduler
+
+`report_jobs` lets the service generate Market Pulse reports asynchronously from
+a user's watchlist. Jobs are stored in SQLite and do not require Celery, Redis,
+or Kafka.
+
+Job status flow:
+
+- `pending`: created and waiting to run.
+- `running`: claimed by the worker.
+- `succeeded`: report was generated and `report_id` is stored.
+- `failed`: attempt failed and can be retried while under `max_attempts`.
+- `dead`: attempts reached `max_attempts`; the job will not be retried.
+
+Scheduler settings:
+
+```env
+ENABLE_REPORT_SCHEDULER=false
+DAILY_REPORT_HOUR=8
+DAILY_REPORT_MINUTE=0
+REPORT_JOB_SCAN_SECONDS=60
+```
+
+When `ENABLE_REPORT_SCHEDULER=true`, FastAPI startup launches lightweight
+background tasks. One task creates daily jobs for all watchlists at the configured
+time, and another scans pending jobs every `REPORT_JOB_SCAN_SECONDS`. Shutdown
+cancels these tasks gracefully. If startup fails, the app logs a warning and
+continues serving existing APIs.
+
+Create a report job:
+
+```powershell
+$job = Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/watchlists/$($watchlist.id)/report-jobs" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Headers $headers `
+  -Body '{"job_type":"manual"}'
+```
+
+Manually run a job for local testing:
+
+```powershell
+$job = Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/report-jobs/$($job.id)/run" `
+  -Method Post `
+  -Headers $headers
+```
+
+Check job status:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/report-jobs/$($job.id)" `
+  -Method Get `
+  -Headers $headers
+```
+
+List current user's jobs:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/report-jobs" `
+  -Method Get `
+  -Headers $headers
+```
+
+Fetch the generated report:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8010/api/reports/$($job.report_id)" `
+  -Method Get `
+  -Headers $headers
+```

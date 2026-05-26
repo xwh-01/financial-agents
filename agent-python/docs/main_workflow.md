@@ -44,14 +44,55 @@ API 调用入口：
 agent-python/market_pulse/service.py
 ```
 
+单条新闻分析流程入口：
+
+```text
+agent-python/market_pulse/workflows/single_news.py
+```
+
 ## LangGraph 节点职责
 
 - `collect_news`: 根据用户 query 调用新闻 client 搜索新闻；没有 query 时采集最新市场新闻。
 - `rank_news`: 调用 `market_pulse/rankers/news_ranker.py` 对候选新闻排序并截取分析集合。
-- `analyze_items`: 对多条入选新闻执行实体识别、事件分析、ticker 关联、市场影响、风险检查、报告生成和合规检查。
+- `analyze_items`: 对多条入选新闻复用 `workflows/single_news.py` 执行单条新闻分析。
 - `risk_route`: 根据整体风险等级做条件路由。
 - `risk_review`: 对高风险结果汇总额外风险原因和合规提醒。
 - `generate_report`: 汇总趋势、关注建议和最终报告，并通过 repository 保存历史报告。
+
+## 单条新闻分析流程
+
+```text
+resolve_entities
+  ↓
+analyze_event
+  ↓
+link_tickers
+  ↓
+analyze_market
+  ↓
+check_risk
+  ↓
+generate_report
+  ↓
+check_compliance
+```
+
+## LLM 使用点
+
+- `market_pulse/analyzers/entity_resolver.py`: 使用 LLM 识别公司、ticker、人物、主题。
+- `market_pulse/analyzers/event_analyzer.py`: 使用 LLM 判断事件类型、情绪、影响强度、置信度。
+- `market_pulse/analyzers/report_generator.py`: 使用 LLM 生成中文报告。
+- 新闻采集、排序、风险规则、报告持久化不依赖 LLM。
+
+## 新闻新鲜度控制
+
+- `NewsItem` 同时保留 `published_at` 和 `fetched_at`。
+- `published_at` 来自新闻 API 或 RSS 条目的发布时间；`fetched_at` 是系统采集到新闻时的 UTC ISO 时间。
+- 采集后会基于 URL 和 title 去重，避免同一条新闻重复进入候选池。
+- `market_pulse/rankers/news_ranker.py` 在排序前解析发布时间，执行时间窗口过滤和 freshness 加权。
+- `published_at` 可解析且超过 7 天的新闻默认过滤，不优先进入 LLM 分析。
+- `published_at` 缺失时不会直接丢弃，但会降低分数并加入 `freshness=missing_published_at`。
+- 最近 6 小时新闻加分最高，最近 24 小时次之，最近 3 天再次之。
 
 ## 目录职责
 
@@ -60,6 +101,7 @@ agent-python/market_pulse/service.py
 - `market_pulse`: Market Pulse 核心业务域。
 - `market_pulse/graph.py`: LangGraph 主流程编排。
 - `market_pulse/nodes`: LangGraph 节点。
+- `market_pulse/workflows`: 可复用的业务流程，目前包含单条新闻分析流程。
 - `market_pulse/analyzers`: 单条新闻分析能力。
 - `market_pulse/rankers`: 排序策略。
 - `clients`: 外部服务调用，包括 LLM、新闻、RSS、行情数据。
@@ -97,4 +139,4 @@ report
 
 ## 面试时推荐说法
 
-“这是一个由 LangGraph 编排的财经新闻 Market Pulse Agent。`market_pulse/analyzers` 目录中的模块是分析能力模块，不是多个独立乱跑的 Agent；主流程统一由 `market_pulse/graph.py` 编排，并通过 `market_pulse/service.py` 暴露给 FastAPI。”
+“这是一个由 LangGraph 编排的财经新闻 Market Pulse Agent。`market_pulse/analyzers` 目录中的模块是分析能力模块，不是多个独立乱跑的 Agent；主流程统一由 `market_pulse/graph.py` 编排。单条新闻分析流程沉淀在 `market_pulse/workflows/single_news.py`，由 API service 和 LangGraph 节点共同复用。”

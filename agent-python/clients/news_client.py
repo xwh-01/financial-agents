@@ -1,4 +1,5 @@
 import math
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import httpx
@@ -281,6 +282,7 @@ async def _build_news_item(
         source=source,
         url=url,
         published_at=published_at,
+        fetched_at=_utc_now_iso(),
         provider=provider,
     )
 
@@ -309,3 +311,7 @@ def _dedupe_news(items: list[NewsItem]) -> list[NewsItem]:
         result.append(item)
 
     return result
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()

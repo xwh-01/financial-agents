@@ -27,6 +27,89 @@ def init_db() -> None:
             )
             """
         )
+        _ensure_reports_columns(conn)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                nickname TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS watchlists (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS watchlist_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                watchlist_id INTEGER NOT NULL,
+                symbol TEXT NOT NULL,
+                name TEXT,
+                note TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(watchlist_id, symbol),
+                FOREIGN KEY (watchlist_id) REFERENCES watchlists(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS report_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                report_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                summary TEXT,
+                impact_analysis TEXT,
+                risk_level TEXT,
+                tickers TEXT,
+                topics TEXT,
+                source_name TEXT,
+                source_url TEXT,
+                published_at DATETIME,
+                relevance_score REAL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (report_id) REFERENCES reports(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS report_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                watchlist_id INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                job_type TEXT NOT NULL DEFAULT 'daily',
+                scheduled_for DATETIME,
+                started_at DATETIME,
+                finished_at DATETIME,
+                attempt_count INTEGER DEFAULT 0,
+                max_attempts INTEGER DEFAULT 3,
+                error_message TEXT,
+                report_id INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (watchlist_id) REFERENCES watchlists(id),
+                FOREIGN KEY (report_id) REFERENCES reports(id)
+            )
+            """
+        )
         conn.commit()
 
 
@@ -111,6 +194,22 @@ def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _ensure_reports_columns(conn: sqlite3.Connection) -> None:
+    existing = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(reports)").fetchall()
+    }
+    columns = {
+        "user_id": "INTEGER",
+        "watchlist_id": "INTEGER",
+        "title": "TEXT",
+        "report_type": "TEXT DEFAULT 'manual'",
+    }
+    for name, definition in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE reports ADD COLUMN {name} {definition}")
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:

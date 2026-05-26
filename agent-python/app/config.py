@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     market_base_url: str = ""
     market_api_key: str = ""
 
+    enable_report_scheduler: bool = False
+    daily_report_hour: int = 8
+    daily_report_minute: int = 0
+    report_job_scan_seconds: int = 60
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

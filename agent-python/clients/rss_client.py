@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TypedDict
 from urllib.parse import quote_plus
@@ -144,6 +145,7 @@ async def fetch_rss_feed(url: str, limit: int = 20) -> list[NewsItem]:
                 source=source,
                 url=link,
                 published_at=published_at,
+                fetched_at=_utc_now_iso(),
                 provider="rss",
             )
         )
@@ -384,3 +386,7 @@ def _as_str_list(value) -> list[str]:
             result.append(text)
 
     return result
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()

@@ -84,6 +84,7 @@ class NewsItem(BaseModel):
     source: str = ""
     url: str = ""
     published_at: str = ""
+    fetched_at: str = ""
     provider: str = ""
     relevance_score: float = 0
     relevance_reasons: list[str] = Field(default_factory=list)

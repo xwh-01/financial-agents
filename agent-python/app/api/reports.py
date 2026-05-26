@@ -1,20 +1,54 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from market_pulse.service import get_report, list_reports
+from auth.dependencies import get_current_user
+from auth.schemas import UserResponse
+from reports.schemas import ReportDetailResponse, ReportItemResponse, ReportResponse
+from reports.service import (
+    get_user_report_detail,
+    list_user_report_items,
+    list_user_reports,
+)
 
 
 router = APIRouter()
 
 
-@router.get("/api/reports")
-async def reports_route():
-    return list_reports(limit=20)
+@router.get("/api/reports", response_model=list[ReportResponse])
+async def reports_route(
+    watchlist_id: int | None = Query(default=None),
+    current_user: UserResponse = Depends(get_current_user),
+):
+    return list_user_reports(
+        user_id=current_user.id,
+        watchlist_id=watchlist_id,
+    )
 
 
-@router.get("/api/reports/{report_id}")
-async def report_detail_route(report_id: int):
-    report = get_report(report_id)
-    if report is None:
+@router.get("/api/reports/{report_id}", response_model=ReportDetailResponse)
+async def report_detail_route(
+    report_id: int,
+    current_user: UserResponse = Depends(get_current_user),
+):
+    detail = get_user_report_detail(
+        user_id=current_user.id,
+        report_id=report_id,
+    )
+    if detail is None:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    return report
+    return detail
+
+
+@router.get("/api/reports/{report_id}/items", response_model=list[ReportItemResponse])
+async def report_items_route(
+    report_id: int,
+    current_user: UserResponse = Depends(get_current_user),
+):
+    items = list_user_report_items(
+        user_id=current_user.id,
+        report_id=report_id,
+    )
+    if items is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    return items

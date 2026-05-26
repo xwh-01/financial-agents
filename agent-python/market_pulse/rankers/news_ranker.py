@@ -1,6 +1,11 @@
 import re
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 from market_pulse.schemas import NewsItem
+
+
+MAX_NEWS_AGE_DAYS = 7
 
 
 TICKER_KEYWORDS = {
@@ -183,6 +188,22 @@ def filter_and_rank_news(
 
     for item in items:
         score, reasons, tickers, topics, events = score_news_item(item)
+        fresh_score = freshness_score(item)
+        fresh_reason = _freshness_reason(item)
+        score += fresh_score
+        reasons.append(f"freshness={fresh_reason}")
+
+        if parse_news_time(item.published_at) and not is_recent_news(
+            item,
+            max_age_days=MAX_NEWS_AGE_DAYS,
+        ):
+            item.relevance_score = score
+            item.relevance_reasons = reasons
+            item.matched_tickers = tickers
+            item.matched_topics = topics
+            item.matched_events = events
+            continue
+
         query_hits = _query_hits(f"{item.title} {item.content}", query)
         if query_hits:
             score += min(16, len(query_hits) * 4)
@@ -206,6 +227,73 @@ def filter_and_rank_news(
 
     ranked.sort(key=lambda item: item.relevance_score, reverse=True)
     return ranked
+
+
+def parse_news_time(published_at: str) -> datetime | None:
+    text = (published_at or "").strip()
+    if not text:
+        return None
+
+    normalized = text
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+
+    try:
+        value = datetime.fromisoformat(normalized)
+        return _ensure_aware_utc(value)
+    except ValueError:
+        pass
+
+    try:
+        value = parsedate_to_datetime(text)
+        return _ensure_aware_utc(value)
+    except (TypeError, ValueError, IndexError, OverflowError):
+        pass
+
+    known_formats = (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d",
+        "%a, %d %b %Y %H:%M:%S %z",
+        "%a, %d %b %Y %H:%M:%S %Z",
+    )
+    for fmt in known_formats:
+        try:
+            value = datetime.strptime(text, fmt)
+            return _ensure_aware_utc(value)
+        except ValueError:
+            continue
+
+    return None
+
+
+def is_recent_news(item: NewsItem, max_age_days: int = 7) -> bool:
+    published_at = parse_news_time(item.published_at)
+    if published_at is None:
+        return True
+
+    age_seconds = (_utc_now() - published_at).total_seconds()
+    return age_seconds <= max_age_days * 24 * 60 * 60
+
+
+def freshness_score(item: NewsItem) -> float:
+    published_at = parse_news_time(item.published_at)
+    if published_at is None:
+        return -1.5
+
+    age_seconds = (_utc_now() - published_at).total_seconds()
+    if age_seconds < 0:
+        return 3.0
+
+    hours = age_seconds / 3600
+    if hours <= 6:
+        return 3.0
+    if hours <= 24:
+        return 2.0
+    if hours <= 72:
+        return 1.0
+    if hours <= MAX_NEWS_AGE_DAYS * 24:
+        return 0.25
+    return -10.0
 
 
 def _query_hits(text: str, query: str) -> list[str]:
@@ -239,3 +327,34 @@ def _query_hits(text: str, query: str) -> list[str]:
             hits.append(token)
 
     return hits
+
+
+def _freshness_reason(item: NewsItem) -> str:
+    published_at = parse_news_time(item.published_at)
+    if published_at is None:
+        return "missing_published_at"
+
+    age_seconds = (_utc_now() - published_at).total_seconds()
+    if age_seconds < 0:
+        return "within_6h"
+
+    hours = age_seconds / 3600
+    if hours <= 6:
+        return "within_6h"
+    if hours <= 24:
+        return "within_24h"
+    if hours <= 72:
+        return "within_3d"
+    if hours <= MAX_NEWS_AGE_DAYS * 24:
+        return "within_7d"
+    return "too_old"
+
+
+def _ensure_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
