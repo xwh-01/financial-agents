@@ -44,6 +44,8 @@ def create_daily_jobs_for_all_watchlists() -> int:
         watchlist_id = watchlist["id"]
         if repository.has_running_job_for_watchlist(watchlist_id):
             continue
+        if repository.has_daily_job_today_for_watchlist(watchlist_id):
+            continue
         repository.create_report_job(
             user_id=watchlist["user_id"],
             watchlist_id=watchlist_id,
@@ -57,14 +59,30 @@ async def run_job(job_id: int) -> ReportJobResponse:
     job = repository.get_report_job_by_id(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Report job not found")
-    if job["status"] not in (repository.PENDING, repository.FAILED):
+
+    status = job["status"]
+    if status in (repository.SUCCEEDED, repository.DEAD):
         raise HTTPException(
             status_code=409,
-            detail=f"Report job cannot run from status {job['status']}",
+            detail=f"Report job cannot run from status {status}",
         )
 
-    if not repository.claim_pending_job(job_id):
-        raise HTTPException(status_code=409, detail="Report job is already running")
+    if status in (repository.PENDING, repository.FAILED):
+        if not repository.claim_pending_job(job_id):
+            raise HTTPException(status_code=409, detail="Report job is already running")
+    elif status != repository.RUNNING:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Report job cannot run from status {status}",
+        )
+
+    return await _execute_job(job_id)
+
+
+async def _execute_job(job_id: int) -> ReportJobResponse:
+    job = repository.get_report_job_by_id(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Report job not found")
 
     try:
         get_owned_watchlist_with_items(

@@ -61,12 +61,16 @@ def init_db() -> None:
                 symbol TEXT NOT NULL,
                 name TEXT,
                 note TEXT,
+                item_type TEXT NOT NULL DEFAULT 'ticker',
+                keyword TEXT,
+                display_name TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(watchlist_id, symbol),
                 FOREIGN KEY (watchlist_id) REFERENCES watchlists(id)
             )
             """
         )
+        _ensure_watchlist_items_columns(conn)
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS report_items (
@@ -193,6 +197,21 @@ def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _ensure_watchlist_items_columns(conn: sqlite3.Connection) -> None:
+    existing = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(watchlist_items)").fetchall()
+    }
+    columns = {
+        "item_type": "TEXT NOT NULL DEFAULT 'ticker'",
+        "keyword": "TEXT",
+        "display_name": "TEXT",
+    }
+    for name, definition in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE watchlist_items ADD COLUMN {name} {definition}")
 
 
 def _ensure_reports_columns(conn: sqlite3.Connection) -> None:

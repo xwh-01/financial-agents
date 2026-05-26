@@ -91,6 +91,8 @@ class NewsItem(BaseModel):
     matched_tickers: list[str] = Field(default_factory=list)
     matched_topics: list[str] = Field(default_factory=list)
     matched_events: list[str] = Field(default_factory=list)
+    source_weight: float = 0.5
+    freshness_score: float = 0.0
 
 
 class SearchNewsRequest(BaseModel):

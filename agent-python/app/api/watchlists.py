@@ -14,10 +14,16 @@ class WatchlistCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
 
 
+ITEM_TYPES = frozenset({"ticker", "company", "topic", "macro", "commodity", "custom"})
+
+
 class WatchlistItemCreateRequest(BaseModel):
-    symbol: str = Field(min_length=1, max_length=20)
+    symbol: str | None = None
     name: str | None = None
     note: str | None = None
+    item_type: str = Field(default="ticker")
+    keyword: str | None = None
+    display_name: str | None = None
 
 
 class WatchlistReportGenerateRequest(BaseModel):
@@ -62,12 +68,32 @@ async def add_watchlist_item_route(
     request: WatchlistItemCreateRequest,
     current_user: UserResponse = Depends(get_current_user),
 ):
+    if request.item_type not in ITEM_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid item_type: {request.item_type}. "
+            f"Must be one of {', '.join(sorted(ITEM_TYPES))}",
+        )
+    if not (request.keyword or "").strip():
+        raise HTTPException(
+            status_code=422,
+            detail="keyword is required and cannot be empty",
+        )
+    if request.item_type == "ticker" and not (request.symbol or "").strip():
+        raise HTTPException(
+            status_code=422,
+            detail="symbol is required when item_type is 'ticker'",
+        )
+    symbol = (request.symbol or request.keyword or "").strip()
     item = watchlist_store.add_watchlist_item(
         user_id=current_user.id,
         watchlist_id=watchlist_id,
-        symbol=request.symbol,
+        symbol=symbol,
         name=request.name,
         note=request.note,
+        item_type=request.item_type,
+        keyword=request.keyword,
+        display_name=request.display_name,
     )
     if item is None:
         raise _watchlist_not_found()

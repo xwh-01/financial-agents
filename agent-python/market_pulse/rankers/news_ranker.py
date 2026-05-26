@@ -2,6 +2,7 @@ import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
+from market_pulse.rankers.source_weight import get_source_weight
 from market_pulse.schemas import NewsItem
 
 
@@ -192,6 +193,12 @@ def filter_and_rank_news(
         fresh_reason = _freshness_reason(item)
         score += fresh_score
         reasons.append(f"freshness={fresh_reason}")
+
+        sw = get_source_weight(item.source, item.url)
+        item.source_weight = sw
+        item.freshness_score = fresh_score
+        score += sw * 5
+        reasons.append(f"source_weight={sw:.2f}")
 
         if parse_news_time(item.published_at) and not is_recent_news(
             item,

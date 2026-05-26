@@ -25,11 +25,53 @@ def get_owned_watchlist_with_items(user_id: int, watchlist_id: int) -> tuple[dic
     return watchlist, items
 
 
+_TYPE_LABELS: dict[str, str] = {
+    "ticker": "tickers",
+    "company": "companies",
+    "topic": "topics",
+    "macro": "macro",
+    "commodity": "commodities",
+    "custom": "custom",
+}
+
+_TYPE_ORDER: tuple[str, ...] = ("tickers", "companies", "topics", "macro", "commodities", "custom")
+
+
 def build_watchlist_query(watchlist: dict, items: list[dict]) -> str:
-    symbols = [item["symbol"] for item in items if item.get("symbol")]
-    names = [item["name"] for item in items if item.get("name")]
-    focus = ", ".join(symbols + names)
-    return f"Market Pulse for watchlist {watchlist['name']}: {focus}"
+    groups: dict[str, list[str]] = {}
+    seen: set[str] = set()
+
+    for item in items:
+        item_type = item.get("item_type", "ticker")
+        label = _TYPE_LABELS.get(item_type, item_type)
+        groups.setdefault(label, [])
+
+        if item_type == "ticker":
+            terms = [
+                (item.get("symbol") or "").strip(),
+                (item.get("name") or "").strip(),
+                (item.get("keyword") or "").strip(),
+                (item.get("display_name") or "").strip(),
+            ]
+        else:
+            terms = [
+                (item.get("keyword") or "").strip(),
+                (item.get("display_name") or "").strip(),
+                (item.get("symbol") or "").strip(),
+                (item.get("name") or "").strip(),
+            ]
+        for term in terms:
+            if term and term.lower() not in seen:
+                seen.add(term.lower())
+                groups[label].append(term)
+
+    lines: list[str] = []
+    for label in _TYPE_ORDER:
+        if label in groups and groups[label]:
+            lines.append(f"{label}: {', '.join(groups[label])}")
+
+    body = "\n".join(lines)
+    return f"Market Pulse for watchlist {watchlist['name']}:\n{body}"
 
 
 async def generate_watchlist_report(

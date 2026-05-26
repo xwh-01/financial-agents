@@ -178,6 +178,23 @@ def find_pending_jobs(limit: int = 10) -> list[dict[str, Any]]:
     return [_job_to_dict(row) for row in rows]
 
 
+def has_daily_job_today_for_watchlist(watchlist_id: int) -> bool:
+    init_db()
+    with _connect() as conn:
+        row = conn.execute(
+            """
+            SELECT 1 FROM report_jobs
+            WHERE watchlist_id = ?
+              AND job_type = 'daily'
+              AND date(created_at) = date('now', 'localtime')
+              AND status IN (?, ?, ?)
+            LIMIT 1
+            """,
+            (watchlist_id, PENDING, RUNNING, SUCCEEDED),
+        ).fetchone()
+    return row is not None
+
+
 def has_running_job_for_watchlist(watchlist_id: int) -> bool:
     init_db()
     with _connect() as conn:

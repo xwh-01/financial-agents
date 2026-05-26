@@ -1,5 +1,6 @@
 from clients.news_client import search_news
 from clients.rss_client import collect_company_market_news, dedupe_news_items
+from market_pulse.filters.news_filter import dedupe_news, filter_fresh_news
 from market_pulse.state import MarketPulseGraphState
 
 
@@ -36,6 +37,15 @@ async def collect_news_node(
         print(f"[langgraph-market] company market news failed: {exc}")
 
     candidate_news = dedupe_news_items(candidate_news)
-    print(f"[langgraph-market] candidate_news={len(candidate_news)}")
+    raw_count = len(candidate_news)
+    print(f"[langgraph-market] raw candidate_news={raw_count}")
+
+    candidate_news = dedupe_news(candidate_news)
+    deduped_count = len(candidate_news)
+    print(f"[langgraph-market] after dedupe={deduped_count}")
+
+    candidate_news = filter_fresh_news(candidate_news, max_age_hours=72)
+    fresh_count = len(candidate_news)
+    print(f"[langgraph-market] after freshness filter={fresh_count}")
 
     return {"candidate_news": candidate_news}

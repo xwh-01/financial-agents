@@ -1,0 +1,119 @@
+"""P0 closed-loop smoke test: auth -> watchlists -> report jobs -> reports.
+
+Usage:
+  uvicorn app.main:app --reload --host 127.0.0.1 --port 8010   # start server
+  python scripts/smoke_test.py                                   # default 8010, auto-run job
+  python scripts/smoke_test.py --skip-run-job                    # create job only (worker picks it up)
+  $env:BASE_URL="http://127.0.0.1:8010"; python scripts/smoke_test.py
+"""
+import os
+import sys
+from uuid import uuid4
+
+import requests
+
+BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:8010")
+SKIP_RUN_JOB = "--skip-run-job" in sys.argv
+
+
+def _fail(msg: str, resp: requests.Response) -> None:
+    print(f"[FAIL] {msg}")
+    print(f"  status: {resp.status_code}")
+    print(f"  body: {resp.text}")
+    sys.exit(1)
+
+
+def _check(resp: requests.Response, expected: int, label: str) -> dict:
+    if resp.status_code != expected:
+        _fail(label, resp)
+    data = resp.json()
+    print(f"[OK] {label}  ({resp.status_code})  keys={list(data.keys())[:6]}")
+    return data
+
+
+def main() -> None:
+    s = requests.Session()
+    unique = uuid4().hex[:8]
+    email = f"smoke_{unique}@example.com"
+    password = "smokeTest1"
+
+    print(f"BASE_URL={BASE_URL}")
+    print(f"test user: {email}")
+
+    r = s.post(f"{BASE_URL}/api/auth/register",
+               json={"email": email, "password": password})
+    user = _check(r, (200, 201), "POST /api/auth/register")
+
+    r = s.post(f"{BASE_URL}/api/auth/login",
+               json={"email": email, "password": password})
+    token_data = _check(r, 200, "POST /api/auth/login")
+    token = token_data["access_token"]
+    s.headers["Authorization"] = f"Bearer {token}"
+
+    r = s.get(f"{BASE_URL}/api/auth/me")
+    _check(r, 200, "GET /api/auth/me")
+
+    r = s.post(f"{BASE_URL}/api/watchlists",
+               json={"name": "P0 Smoke Test Watchlist"})
+    wl = _check(r, 201, "POST /api/watchlists")
+    wl_id = wl["id"]
+    print(f"  watchlist_id={wl_id}")
+
+    items_payload = [
+        {"item_type": "ticker", "symbol": "NVDA", "name": "NVIDIA", "keyword": "NVIDIA"},
+        {"item_type": "topic", "keyword": "AI chips", "display_name": "AI Chips"},
+        {"item_type": "macro", "keyword": "Fed interest rate", "display_name": "Fed Interest Rate"},
+        {"item_type": "commodity", "keyword": "gold", "display_name": "Gold"},
+    ]
+    for payload in items_payload:
+        r = s.post(f"{BASE_URL}/api/watchlists/{wl_id}/items", json=payload)
+        item = _check(r, 201, f"POST /api/watchlists/{wl_id}/items ({payload['item_type']}: {payload.get('symbol') or payload['keyword']})")
+        print(f"  item_id={item['id']}  type={item['item_type']}  symbol={item['symbol']}")
+
+    r = s.get(f"{BASE_URL}/api/watchlists/{wl_id}/items")
+    items = _check(r, 200, "GET /api/watchlists/{wl_id}/items")
+    assert len(items) >= 4, f"Expected >= 4 items, got {len(items)}"
+    print(f"  item count: {len(items)}")
+
+    r = s.post(f"{BASE_URL}/api/watchlists/{wl_id}/report-jobs")
+    job = _check(r, (200, 201), "POST /api/watchlists/{wl_id}/report-jobs")
+    job_id = job["id"]
+    print(f"  job_id={job_id}  status={job['status']}")
+
+    if SKIP_RUN_JOB:
+        print(f"\n  --skip-run-job set; worker must process job {job_id}")
+        print(f"  Start worker: python -m report_jobs.worker")
+        print(f"  Or trigger manually: curl -X POST {BASE_URL}/api/report-jobs/{job_id}/run")
+    else:
+        r = s.post(f"{BASE_URL}/api/report-jobs/{job_id}/run")
+        job = _check(r, 200, f"POST /api/report-jobs/{job_id}/run")
+        job_status = job.get("status", "")
+        print(f"  job status after run: {job_status}")
+
+    r = s.get(f"{BASE_URL}/api/report-jobs/{job_id}")
+    job = _check(r, 200, f"GET /api/report-jobs/{job_id}")
+    job_status = job.get("status", "")
+    report_id = job.get("report_id")
+    print(f"  final status: {job_status}  report_id={report_id}")
+
+    if job_status == "succeeded" and report_id:
+        r = s.get(f"{BASE_URL}/api/reports/{report_id}")
+        report = _check(r, 200, f"GET /api/reports/{report_id}")
+        print(f"  report title: {report.get('title', 'N/A')}")
+        print(f"  report risk_level: {report.get('risk_level', 'N/A')}")
+
+        r = s.get(f"{BASE_URL}/api/reports/{report_id}/items")
+        items = _check(r, 200, f"GET /api/reports/{report_id}/items")
+        print(f"  report items count: {len(items)}")
+    elif SKIP_RUN_JOB:
+        print(f"[INFO] job not yet run; start worker or POST /api/report-jobs/{job_id}/run")
+    else:
+        print(f"[WARN] job did not succeed (status={job_status}), skipping report fetch")
+        if job.get("error_message"):
+            print(f"  error: {job['error_message']}")
+
+    print("\n=== P0 SMOKE TEST PASSED ===")
+
+
+if __name__ == "__main__":
+    main()

@@ -78,21 +78,31 @@ def add_watchlist_item(
     symbol: str,
     name: str | None = None,
     note: str | None = None,
+    item_type: str = "ticker",
+    keyword: str | None = None,
+    display_name: str | None = None,
 ) -> dict[str, Any] | None:
     init_db()
 
     if get_watchlist(user_id=user_id, watchlist_id=watchlist_id) is None:
         return None
 
-    normalized_symbol = symbol.upper().strip()
+    if item_type == "ticker":
+        normalized_symbol = symbol.upper().strip()
+        if not normalized_symbol:
+            return None
+    else:
+        normalized_symbol = (keyword or symbol or "").strip()
+
     try:
         with _connect() as conn:
             cursor = conn.execute(
                 """
-                INSERT INTO watchlist_items (watchlist_id, symbol, name, note)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO watchlist_items
+                    (watchlist_id, symbol, name, note, item_type, keyword, display_name)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (watchlist_id, normalized_symbol, name, note),
+                (watchlist_id, normalized_symbol, name, note, item_type, keyword, display_name),
             )
             conn.commit()
             item_id = int(cursor.lastrowid)
@@ -100,7 +110,8 @@ def add_watchlist_item(
         with _connect() as conn:
             row = conn.execute(
                 """
-                SELECT id, watchlist_id, symbol, name, note, created_at
+                SELECT id, watchlist_id, symbol, name, note,
+                       item_type, keyword, display_name, created_at
                 FROM watchlist_items
                 WHERE watchlist_id = ? AND symbol = ?
                 """,
@@ -124,7 +135,8 @@ def list_watchlist_items(user_id: int, watchlist_id: int) -> list[dict[str, Any]
     with _connect() as conn:
         rows = conn.execute(
             """
-            SELECT id, watchlist_id, symbol, name, note, created_at
+            SELECT id, watchlist_id, symbol, name, note,
+                   item_type, keyword, display_name, created_at
             FROM watchlist_items
             WHERE watchlist_id = ?
             ORDER BY symbol ASC
@@ -148,7 +160,8 @@ def get_watchlist_item(
     with _connect() as conn:
         row = conn.execute(
             """
-            SELECT id, watchlist_id, symbol, name, note, created_at
+            SELECT id, watchlist_id, symbol, name, note,
+                   item_type, keyword, display_name, created_at
             FROM watchlist_items
             WHERE id = ? AND watchlist_id = ?
             """,
@@ -194,5 +207,8 @@ def _item_to_dict(row) -> dict[str, Any]:
         "symbol": row["symbol"],
         "name": row["name"],
         "note": row["note"],
+        "item_type": row["item_type"] if "item_type" in row.keys() else "ticker",
+        "keyword": row["keyword"] if "keyword" in row.keys() else None,
+        "display_name": row["display_name"] if "display_name" in row.keys() else None,
         "created_at": row["created_at"],
     }

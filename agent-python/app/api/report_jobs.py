@@ -9,6 +9,7 @@ from report_jobs.service import (
     list_user_jobs,
     run_job,
 )
+from report_jobs.worker import run_pending_jobs_once
 
 
 router = APIRouter()
@@ -62,3 +63,11 @@ async def run_report_job_route(
     if job is None:
         raise HTTPException(status_code=404, detail="Report job not found")
     return await run_job(job_id)
+
+
+@router.post("/api/report-jobs/run-pending-once")
+async def run_pending_once_route(
+    current_user: UserResponse = Depends(get_current_user),
+):
+    completed = await run_pending_jobs_once(limit=3)
+    return {"completed": completed}

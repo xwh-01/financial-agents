@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     daily_report_hour: int = 8
     daily_report_minute: int = 0
     report_job_scan_seconds: int = 60
+    report_job_scan_interval_seconds: int = 5
 
     model_config = SettingsConfigDict(
         env_file=".env",
