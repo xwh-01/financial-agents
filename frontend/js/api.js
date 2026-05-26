@@ -22,7 +22,9 @@ var API = (function () {
     var data;
     try { data = await res.json(); } catch (_) { data = {}; }
     if (!res.ok) {
-      var err = new Error(data.detail || (res.status + " " + res.statusText));
+      var msg = data.detail;
+      if (typeof msg === "object") msg = JSON.stringify(msg);
+      var err = new Error(msg || (res.status + " " + res.statusText));
       err.status = res.status;
       throw err;
     }

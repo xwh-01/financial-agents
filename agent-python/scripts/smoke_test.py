@@ -14,6 +14,7 @@ import requests
 
 BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:8010")
 SKIP_RUN_JOB = "--skip-run-job" in sys.argv
+DAILY_JOB_CHECK = "--daily-job-check" in sys.argv
 
 
 def _fail(msg: str, resp: requests.Response) -> None:
@@ -23,11 +24,15 @@ def _fail(msg: str, resp: requests.Response) -> None:
     sys.exit(1)
 
 
-def _check(resp: requests.Response, expected: int, label: str) -> dict:
-    if resp.status_code != expected:
+def _check(resp: requests.Response, expected: int | tuple, label: str) -> dict | list:
+    exp = expected if isinstance(expected, tuple) else (expected,)
+    if resp.status_code not in exp:
         _fail(label, resp)
     data = resp.json()
-    print(f"[OK] {label}  ({resp.status_code})  keys={list(data.keys())[:6]}")
+    if isinstance(data, dict):
+        print(f"[OK] {label}  ({resp.status_code})  keys={list(data.keys())[:6]}")
+    else:
+        print(f"[OK] {label}  ({resp.status_code})  items={len(data)}")
     return data
 
 
@@ -134,6 +139,47 @@ def main() -> None:
     print(f"  reports by date: {len(dated)}")
 
     print("\n=== P0 SMOKE TEST PASSED ===")
+
+    if DAILY_JOB_CHECK:
+        _daily_check(s, wl_id)
+
+
+def _daily_check(s: requests.Session, wl_id: int) -> None:
+    print("\n=== DAILY JOB CHECK ===")
+
+    r = s.post(f"{BASE_URL}/api/report-jobs/create-daily-once")
+    result = _check(r, 200, "POST /api/report-jobs/create-daily-once")
+    print(f"  created: {result.get('created')}  skipped: {result.get('skipped')}")
+    job_ids = result.get("job_ids", [])
+
+    r = s.get(f"{BASE_URL}/api/report-jobs")
+    jobs = _check(r, 200, "GET /api/report-jobs (all)")
+    daily_jobs = [j for j in jobs if j.get("job_type") == "daily"]
+    print(f"  daily jobs found: {len(daily_jobs)}")
+
+    if not daily_jobs and not job_ids:
+        print("[WARN] No daily jobs found. Was create-daily-once successful?")
+        return
+
+    target_id = job_ids[0] if job_ids else daily_jobs[0]["id"]
+    print(f"  running daily job #{target_id}")
+
+    r = s.post(f"{BASE_URL}/api/report-jobs/{target_id}/run")
+    job = _check(r, 200, f"POST /api/report-jobs/{target_id}/run")
+    jstatus = job.get("status", "")
+    report_id = job.get("report_id")
+    print(f"  job status: {jstatus}  report_id: {report_id}")
+
+    r = s.get(f"{BASE_URL}/api/reports/today")
+    today = _check(r, 200, "GET /api/reports/today")
+    print(f"  today reports: {len(today)}")
+    if today:
+        for tr in today[:3]:
+            print(f"    report_id={tr.get('id')}  title={tr.get('title', '?')[:60]}")
+    else:
+        print("  [WARN] No reports found for today after running daily job")
+
+    print("\n=== DAILY JOB CHECK DONE ===")
 
 
 if __name__ == "__main__":

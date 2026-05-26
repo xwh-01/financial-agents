@@ -129,6 +129,43 @@
       .app { width: min(100% - 24px, 1200px); }
       .top-nav { flex-wrap: wrap; }
     }
+
+    .cat-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .cat-tab {
+      padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line-strong);
+      cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted);
+      background: rgba(2,6,23,0.3); white-space: nowrap;
+    }
+    .cat-tab:hover, .cat-tab.active { color: var(--cyan); border-color: rgba(34,211,238,0.5); background: rgba(34,211,238,0.08); }
+
+    .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-bottom: 14px; }
+    .preset-chip {
+      padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line);
+      cursor: pointer; font-size: 13px; font-weight: 700; background: rgba(2,6,23,0.3);
+      display: flex; align-items: center; gap: 6px; transition: border-color .15s;
+    }
+    .preset-chip:hover { border-color: var(--cyan); }
+    .preset-chip.added { border-color: rgba(34,197,94,0.4); color: var(--green); background: rgba(34,197,94,0.06); cursor: default; }
+    .preset-chip.pending { border-color: rgba(245,158,11,0.4); color: var(--amber); background: rgba(245,158,11,0.06); }
+
+    .pending-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+      padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(245,158,11,0.3);
+      background: rgba(245,158,11,0.06); margin-bottom: 12px;
+    }
+    .pending-chip {
+      display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px;
+      border-radius: 8px; border: 1px solid rgba(34,211,238,0.3); font-size: 12px;
+      background: rgba(34,211,238,0.06); margin: 2px;
+    }
+    .pending-chip .remove { cursor: pointer; color: var(--red); font-weight: 900; margin-left: 2px; }
+
+    .bundle-card {
+      padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
+      background: rgba(2,6,23,0.3); cursor: pointer;
+    }
+    .bundle-card:hover { border-color: var(--cyan); }
+    .bundle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 14px; }
   </style>
 </head>
 <body>
@@ -138,7 +175,8 @@
     <div id="mainContent"></div>
   </main>
 
-  <script src="js/api.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/api.js?v=2"></script>
+  <script src="js/presets.js?v=2"></script>
+  <script src="js/app.js?v=2"></script>
 </body>
 </html>

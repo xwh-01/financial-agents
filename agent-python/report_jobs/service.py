@@ -55,6 +55,23 @@ def create_daily_jobs_for_all_watchlists() -> int:
     return created
 
 
+def create_daily_jobs_for_user(user_id: int) -> dict:
+    created_ids: list[int] = []
+    skipped = 0
+    for watchlist in watchlist_store.list_watchlists(user_id=user_id):
+        wl_id = watchlist["id"]
+        if repository.has_daily_job_today_for_watchlist(wl_id):
+            skipped += 1
+            continue
+        job_id = repository.create_report_job(
+            user_id=user_id,
+            watchlist_id=wl_id,
+            job_type="daily",
+        )
+        created_ids.append(job_id)
+    return {"created": len(created_ids), "skipped": skipped, "job_ids": created_ids}
+
+
 async def run_job(job_id: int) -> ReportJobResponse:
     job = repository.get_report_job_by_id(job_id)
     if job is None:

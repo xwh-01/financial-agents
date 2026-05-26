@@ -69,3 +69,30 @@ localStorage.setItem("mkt_base_url", "http://your-backend:8010")
 - Vanilla JavaScript (ES2017+, async/await)
 - Hash-based SPA routing
 - No framework, no build step, no npm
+
+## 新闻追踪板块选择器
+
+Watchlist 详情页支持通过预设板块快速选择关注项，无需手动输入 item_type/symbol/keyword。
+
+### 功能
+
+- **10 大板块**：科技股、AI 与半导体、宏观政策、商品市场、财报与业绩、公司事件、监管与风险、市场情绪、行业主题、自定义关注
+- **100+ 预设项**：每个预设包含 item_type/symbol/keyword/display_name
+- **搜索**：输入关键词在所有 preset 中搜索（范围包括 label/keyword/display_name/symbol/category）
+- **待添加列表**：点击 preset 先加入待添加列表，支持批量提交或移除
+- **一键添加板块**：每个大类有"添加本板块全部"按钮
+- **推荐组合**：4 套预设组合（科技股日报、AI 半导体追踪、宏观与黄金、原油与通胀）
+- **防重复**：已添加/待添加的 preset 显示不同状态，不允许重复添加
+
+### 数据源
+
+`frontend/js/presets.js` — WATCHLIST_PRESETS, WATCHLIST_CATEGORIES, WATCHLIST_BUNDLES
+
+### 用户流程
+
+1. 打开关注列表详情页（`#watchlist-detail/{id}`）
+2. 在"推荐组合"中选择一个组合，或在板块中选择单项
+3. 查看待添加列表
+4. 点击"批量添加到关注列表"
+5. 创建报告任务
+6. 运行任务并查看报告

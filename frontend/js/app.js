@@ -173,48 +173,219 @@ var App = (function () {
     } catch (e) { showError(e.message); }
   };
 
+  var _pendingAdds = [];
+  var _currentWlId = 0;
+  var _currentItems = [];
+
+  function _isPresetAdded(p) {
+    return _currentItems.some(function (item) {
+      var kw = (item.keyword || "").toLowerCase();
+      var sym = (item.symbol || "").toUpperCase();
+      var pk = (p.keyword || "").toLowerCase();
+      var ps = (p.symbol || "").toUpperCase();
+      return pk && kw === pk || (ps && sym === ps);
+    });
+  }
+
+  function _isPresetPending(p) {
+    return _pendingAdds.some(function (pp) { return pp.keyword === p.keyword && pp.item_type === p.item_type; });
+  }
+
+  function _renderPresetChips(presets) {
+    return presets.map(function (p) {
+      var isAdded = _isPresetAdded(p);
+      var isPending = _isPresetPending(p);
+      var cls = isAdded ? " added" : isPending ? " pending" : "";
+      var label = isAdded ? "已添加" : isPending ? "待添加" : "选择";
+      var onclick = isAdded ? "" : ('onclick="App.togglePreset(\'' + esc(p.item_type) + '\',\'' + esc(p.symbol) + '\',\'' + esc(p.keyword || p.label) + '\',\'' + esc(p.display_name || p.label) + '\')"');
+      return '<span class="preset-chip' + cls + '" ' + onclick + '>' +
+        '<span class="badge ' + (_typeBadge(p.item_type)) + '">' + esc(p.item_type) + '</span>' +
+        esc(p.label) + ' <small>' + escape(label) + '</small></span>';
+    }).join("");
+  }
+
+  function _typeBadge(t) {
+    return t === "ticker" ? "info" : t === "macro" ? "warn" : t === "commodity" ? "good" : "neutral";
+  }
+
+  window.togglePreset = function (itemType, symbol, keyword, displayName) {
+    var idx = _pendingAdds.findIndex(function (pp) { return pp.keyword === keyword && pp.item_type === itemType; });
+    if (idx >= 0) {
+      _pendingAdds.splice(idx, 1);
+    } else {
+      _pendingAdds.push({ item_type: itemType, symbol: symbol, keyword: keyword, display_name: displayName, name: displayName || keyword });
+    }
+    window.watchlistDetail();
+  };
+
+  window.addBundle = function (bundleName) {
+    var bundle = WATCHLIST_BUNDLES.find(function (b) { return b.name === bundleName; });
+    if (!bundle) return;
+    bundle.keys.forEach(function (k) {
+      var p = WATCHLIST_PRESETS.find(function (pp) { return pp.keyword === k || pp.label === k || pp.symbol === k || pp.display_name === k; });
+      if (p && !_isPresetAdded(p) && !_isPresetPending(p)) {
+        _pendingAdds.push({ item_type: p.item_type, symbol: p.symbol, keyword: p.keyword || p.label, display_name: p.display_name || p.label, name: p.display_name || p.label });
+      }
+    });
+    showToast("Added bundle: " + bundleName);
+    window.watchlistDetail();
+  };
+
+  window.addCategory = function (cat) {
+    WATCHLIST_PRESETS.filter(function (p) { return p.category === cat; }).forEach(function (p) {
+      if (!_isPresetAdded(p) && !_isPresetPending(p)) {
+        _pendingAdds.push({ item_type: p.item_type, symbol: p.symbol, keyword: p.keyword || p.label, display_name: p.display_name || p.label, name: p.display_name || p.label });
+      }
+    });
+    showToast("Added category: " + cat);
+    window.watchlistDetail();
+  };
+
+  window.clearPending = function () { _pendingAdds = []; window.watchlistDetail(); };
+
+  window.batchAddToWatchlist = async function () {
+    showError("");
+    if (!_pendingAdds.length) return showToast("No items to add");
+    var success = 0;
+    var failed = 0;
+    for (var i = 0; i < _pendingAdds.length; i++) {
+      var item = _pendingAdds[i];
+      try {
+        await API.watchlists.addItem(_currentWlId, item);
+        success++;
+      } catch (e) {
+        showToast("Failed: " + (item.display_name || item.keyword) + " - " + e.message);
+        failed++;
+      }
+    }
+    _pendingAdds = [];
+    showToast("Added " + success + " item(s)" + (failed ? ", " + failed + " failed" : ""));
+    window.watchlistDetail();
+  };
+
   window.watchlistDetail = async function () {
     showError("");
     var parts = (location.hash || "#").replace("#watchlist-detail/", "").split("/");
-    var wlId = Number(parts[0]);
+    _currentWlId = Number(parts[0]);
     $container.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
     try {
-      var items = await API.watchlists.items(wlId);
-      var rows = items.map(function (item) {
-        return '<tr><td>' + esc(item.item_type || "ticker") + '</td><td>' + esc(item.symbol || "") + '</td><td>' + esc(item.keyword || "") + '</td><td>' + esc(item.display_name || "") + '</td></tr>';
-      }).join("");
+      _currentItems = await API.watchlists.items(_currentWlId);
+      var searchTerm = "";
+      var curCat = WATCHLIST_CATEGORIES[0];
 
-      var typeOptions = ["ticker", "company", "topic", "macro", "commodity", "custom"]
-        .map(function (t) { return '<option value="' + t + '">' + t + '</option>'; }).join("");
+      function render(search, cat) {
+        var presets = WATCHLIST_PRESETS;
+        if (search) {
+          var q = search.toLowerCase();
+          presets = presets.filter(function (p) {
+            return (p.label + " " + p.keyword + " " + p.display_name + " " + p.symbol + " " + p.category).toLowerCase().indexOf(q) >= 0;
+          });
+        } else if (cat && cat !== "自定义关注") {
+          presets = presets.filter(function (p) { return p.category === cat; });
+        } else if (cat === "自定义关注") {
+          presets = [];
+        }
 
-      $container.innerHTML = [
-        '<div class="panel">',
-        '<div class="panel-head"><h2>Watchlist Items</h2><a href="#watchlists">&larr; Back</a></div>',
-        '<div class="form-grid" style="margin-bottom:14px">',
-        '<select id="addType">' + typeOptions + '</select>',
-        '<input id="addSymbol" type="text" placeholder="Symbol (for ticker)" />',
-        '<input id="addKeyword" type="text" placeholder="Keyword (required)" />',
-        '<input id="addDisplay" type="text" placeholder="Display name" />',
-        '<button class="btn primary" onclick="App.addWatchlistItem(' + wlId + ')">Add Item</button>',
-        '</div>',
-        '<div style="margin-bottom:14px">',
-        '<button class="btn secondary" onclick="App.createJob(' + wlId + ')">Create Report Job</button>',
-        '</div>',
-        items.length ? '<div class="table-wrap"><table><thead><tr><th>Type</th><th>Symbol</th><th>Keyword</th><th>Display</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">No items. Add one above.</div>',
-        '</div>',
-      ].join("");
+        var itemsRows = _currentItems.map(function (item) {
+          return '<tr><td>' + esc(item.item_type || "ticker") + '</td><td>' + esc(item.symbol || "") + '</td><td>' + esc(item.keyword || "") + '</td><td>' + esc(item.display_name || "") + '</td></tr>';
+        }).join("");
+
+        var tabs = WATCHLIST_CATEGORIES.map(function (c) {
+          return '<span class="cat-tab' + (!search && cat === c ? " active" : "") + '" onclick="App.catClick(\'' + esc(c) + '\')">' + esc(c) + '</span>';
+        }).join("");
+
+        var chips;
+        if (presets.length) {
+          chips = '<div class="preset-grid">' + _renderPresetChips(presets) + '</div>';
+        } else if (cat === "自定义关注") {
+          chips = "";
+        } else {
+          chips = '<div class="empty" style="min-height:60px">No matching presets</div>';
+        }
+
+        var bundlesHtml = WATCHLIST_BUNDLES.map(function (b) {
+          return '<div class="bundle-card" onclick="App.addBundle(\'' + esc(b.name) + '\')"><strong>' + esc(b.name) + '</strong><br><small style="color:var(--muted)">' + b.keys.join(", ") + '</small></div>';
+        }).join("");
+
+        var pendingHtml = "";
+        if (_pendingAdds.length) {
+          pendingHtml = '<div class="pending-bar"><div>' +
+            _pendingAdds.map(function (pp) {
+              return '<span class="pending-chip">' + esc(pp.display_name || pp.keyword) +
+                ' <span class="remove" onclick="App.togglePreset(\'' + esc(pp.item_type) + '\',\'' + esc(pp.symbol) + '\',\'' + esc(pp.keyword) + '\',\'' + esc(pp.display_name) + '\')">x</span></span>';
+            }).join("") +
+            '</div><div style="display:flex;gap:8px">' +
+            '<button class="btn primary" onclick="App.batchAddToWatchlist()">批量添加到关注列表</button>' +
+            '<button class="btn secondary" onclick="App.clearPending()">清空待添加</button>' +
+            '</div></div>';
+        }
+
+        $container.innerHTML = [
+          '<div class="panel">',
+          '<div class="panel-head"><h2>Watchlist Items</h2><a href="#watchlists">&larr; Back</a></div>',
+
+          '<h3 style="margin:14px 0 6px">推荐组合</h3>',
+          '<div class="bundle-grid">' + bundlesHtml + '</div>',
+
+          '<h3 style="margin:14px 0 6px">选择新闻追踪板块</h3>',
+          '<p class="hint" style="margin-bottom:10px">选择你关心的公司、行业、宏观政策和商品市场。系统会根据这些关注项自动抓取相关新闻并生成市场脉冲报告。</p>',
+          '<input id="presetSearch" type="text" placeholder="搜索公司、主题、宏观关键词，例如 NVIDIA、AI 芯片、美联储、黄金" style="margin-bottom:10px" oninput="App.searchPresets()" value="' + esc(searchTerm) + '" />',
+          '<div class="cat-tabs">' + tabs + '</div>',
+
+          cat !== "自定义关注" && !search
+            ? ('<button class="btn secondary" style="margin-bottom:10px" onclick="App.addCategory(\'' + esc(cat) + '\')">添加本板块全部</button>')
+            : "",
+
+          chips,
+
+          cat === "自定义关注"
+            ? ('<div class="form-grid" style="margin-bottom:14px">' +
+               '<select id="addType">' + ["ticker","company","topic","macro","commodity","custom"].map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join("") + '</select>' +
+               '<input id="addSymbol" type="text" placeholder="Symbol (for ticker)" />' +
+               '<input id="addKeyword" type="text" placeholder="Keyword (required)" />' +
+               '<input id="addDisplay" type="text" placeholder="Display name" />' +
+               '<button class="btn primary" onclick="App.addWatchlistItem()">Add Item</button>' +
+               '</div>')
+            : "",
+
+          pendingHtml,
+
+          '<div style="margin:14px 0">',
+          '<button class="btn secondary" onclick="App.createJob(' + _currentWlId + ')">Create Report Job</button>',
+          '</div>',
+
+          _currentItems.length
+            ? '<div class="table-wrap"><table><thead><tr><th>Type</th><th>Symbol</th><th>Keyword</th><th>Display</th></tr></thead><tbody>' + itemsRows + '</tbody></table></div>'
+            : '<div class="empty">No items yet. Use above presets or add manually.</div>',
+          '</div>',
+        ].join("");
+      }
+
+      render("", WATCHLIST_CATEGORIES[0]);
+
+      window.searchPresets = function () {
+        var q = (document.getElementById("presetSearch") || {}).value || "";
+        render(q, "");
+      };
+
+      window.catClick = function (cat) {
+        var inp = document.getElementById("presetSearch");
+        if (inp) inp.value = "";
+        render("", cat);
+      };
+
     } catch (e) { showError("Failed to load: " + e.message); }
   };
 
-  window.addWatchlistItem = async function (wlId) {
+  window.addWatchlistItem = async function () {
     showError("");
-    var itemType = $("addType").value;
-    var symbol = $("addSymbol").value.trim();
-    var keyword = $("addKeyword").value.trim();
-    var display = $("addDisplay").value.trim();
+    var itemType = document.getElementById("addType").value;
+    var symbol = document.getElementById("addSymbol").value.trim();
+    var keyword = document.getElementById("addKeyword").value.trim();
+    var display = document.getElementById("addDisplay").value.trim();
     if (!keyword) return showError("Keyword is required");
     try {
-      await API.watchlists.addItem(wlId, {
+      await API.watchlists.addItem(_currentWlId, {
         item_type: itemType, symbol: symbol, keyword: keyword, display_name: display, name: display || keyword,
       });
       showToast("Item added");
@@ -228,13 +399,23 @@ var App = (function () {
     try {
       var jobs = await API.jobs.list();
       var rows = jobs.map(function (j) {
-        return '<tr><td>' + j.id + '</td><td>' + esc(j.status) + '</td><td>' + esc(j.job_type) + '</td><td>' + esc(j.created_at || "") + '</td><td>' +
-          (j.status === "succeeded" && j.report_id ? '<a href="#report-detail/' + j.report_id + '">View Report</a> ' : "") +
-          '<button class="btn secondary" onclick="App.runJob(' + j.id + ')">Run</button></td></tr>';
+        var isDaily = j.job_type === "daily";
+        return '<tr>' +
+          '<td>' + j.id + '</td>' +
+          '<td>' + esc(j.status) + '</td>' +
+          '<td>' + esc(j.job_type) + (isDaily ? ' <span class="badge info">daily</span>' : '') + '</td>' +
+          '<td>' + esc(j.scheduled_for || "-") + '</td>' +
+          '<td>' + (j.attempt_count || 0) + '/' + (j.max_attempts || 3) + '</td>' +
+          '<td style="color:var(--red);font-size:12px">' + esc(j.error_message || "").substring(0, 50) + '</td>' +
+          '<td>' + esc(j.created_at || "") + '</td>' +
+          '<td>' +
+            (j.status === "succeeded" && j.report_id ? '<a href="#report-detail/' + j.report_id + '">Report #' + j.report_id + '</a> ' : "") +
+            '<button class="btn secondary" onclick="App.runJob(' + j.id + ')">Run</button>' +
+          '</td></tr>';
       }).join("");
       $container.innerHTML = [
         '<div class="panel"><div class="panel-head"><h2>Report Jobs</h2></div>',
-        jobs.length ? '<div class="table-wrap"><table><thead><tr><th>ID</th><th>Status</th><th>Type</th><th>Created</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">No jobs.</div>',
+        jobs.length ? '<div class="table-wrap"><table><thead><tr><th>ID</th><th>Status</th><th>Type</th><th>Scheduled</th><th>Attempts</th><th>Error</th><th>Created</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="empty">No jobs.</div>',
         '</div>',
       ].join("");
     } catch (e) { showError("Failed to load: " + e.message); }
@@ -371,6 +552,14 @@ var App = (function () {
     createJob: window.createJob,
     addWatchlistItem: window.addWatchlistItem,
     runJob: window.runJob,
+    togglePreset: window.togglePreset,
+    addBundle: window.addBundle,
+    addCategory: window.addCategory,
+    clearPending: window.clearPending,
+    batchAddToWatchlist: window.batchAddToWatchlist,
+    searchPresets: window.searchPresets,
+    catClick: window.catClick,
+    filterReports: window.filterReports,
   };
 })();
 

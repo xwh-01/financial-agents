@@ -1,0 +1,124 @@
+var WATCHLIST_PRESETS = [
+  { category: "科技股", label: "英伟达", item_type: "ticker", symbol: "NVDA", keyword: "NVIDIA", display_name: "英伟达" },
+  { category: "科技股", label: "AMD", item_type: "ticker", symbol: "AMD", keyword: "AMD", display_name: "AMD" },
+  { category: "科技股", label: "苹果", item_type: "ticker", symbol: "AAPL", keyword: "Apple", display_name: "苹果" },
+  { category: "科技股", label: "微软", item_type: "ticker", symbol: "MSFT", keyword: "Microsoft", display_name: "微软" },
+  { category: "科技股", label: "特斯拉", item_type: "ticker", symbol: "TSLA", keyword: "Tesla", display_name: "特斯拉" },
+  { category: "科技股", label: "谷歌", item_type: "ticker", symbol: "GOOGL", keyword: "Alphabet", display_name: "谷歌" },
+  { category: "科技股", label: "亚马逊", item_type: "ticker", symbol: "AMZN", keyword: "Amazon", display_name: "亚马逊" },
+  { category: "科技股", label: "Meta", item_type: "ticker", symbol: "META", keyword: "Meta", display_name: "Meta" },
+  { category: "科技股", label: "台积电", item_type: "ticker", symbol: "TSM", keyword: "TSMC", display_name: "台积电" },
+  { category: "科技股", label: "博通", item_type: "ticker", symbol: "AVGO", keyword: "Broadcom", display_name: "博通" },
+
+  { category: "AI 与半导体", label: "AI 芯片", item_type: "topic", symbol: "", keyword: "AI chips", display_name: "AI 芯片" },
+  { category: "AI 与半导体", label: "GPU", item_type: "topic", symbol: "", keyword: "GPU", display_name: "GPU" },
+  { category: "AI 与半导体", label: "数据中心", item_type: "topic", symbol: "", keyword: "data center", display_name: "数据中心" },
+  { category: "AI 与半导体", label: "半导体", item_type: "topic", symbol: "", keyword: "semiconductor", display_name: "半导体" },
+  { category: "AI 与半导体", label: "晶圆代工", item_type: "topic", symbol: "", keyword: "foundry", display_name: "晶圆代工" },
+  { category: "AI 与半导体", label: "先进制程", item_type: "topic", symbol: "", keyword: "advanced semiconductor manufacturing", display_name: "先进制程" },
+  { category: "AI 与半导体", label: "HBM 高带宽内存", item_type: "topic", symbol: "", keyword: "HBM memory", display_name: "HBM 高带宽内存" },
+  { category: "AI 与半导体", label: "光刻机", item_type: "topic", symbol: "", keyword: "lithography machine", display_name: "光刻机" },
+  { category: "AI 与半导体", label: "CUDA 生态", item_type: "topic", symbol: "", keyword: "CUDA ecosystem", display_name: "CUDA 生态" },
+  { category: "AI 与半导体", label: "AI 服务器", item_type: "topic", symbol: "", keyword: "AI server", display_name: "AI 服务器" },
+
+  { category: "宏观政策", label: "美联储利率", item_type: "macro", symbol: "", keyword: "Fed interest rate", display_name: "美联储利率" },
+  { category: "宏观政策", label: "FOMC 会议", item_type: "macro", symbol: "", keyword: "FOMC", display_name: "FOMC 会议" },
+  { category: "宏观政策", label: "通胀", item_type: "macro", symbol: "", keyword: "inflation", display_name: "通胀" },
+  { category: "宏观政策", label: "CPI", item_type: "macro", symbol: "", keyword: "CPI", display_name: "CPI" },
+  { category: "宏观政策", label: "非农就业", item_type: "macro", symbol: "", keyword: "nonfarm payrolls", display_name: "非农就业" },
+  { category: "宏观政策", label: "美债收益率", item_type: "macro", symbol: "", keyword: "treasury yields", display_name: "美债收益率" },
+  { category: "宏观政策", label: "美元指数", item_type: "macro", symbol: "", keyword: "US dollar index", display_name: "美元指数" },
+  { category: "宏观政策", label: "降息预期", item_type: "macro", symbol: "", keyword: "rate cut expectations", display_name: "降息预期" },
+  { category: "宏观政策", label: "经济衰退风险", item_type: "macro", symbol: "", keyword: "recession risk", display_name: "经济衰退风险" },
+  { category: "宏观政策", label: "关税政策", item_type: "macro", symbol: "", keyword: "tariffs", display_name: "关税政策" },
+
+  { category: "商品市场", label: "黄金", item_type: "commodity", symbol: "", keyword: "gold", display_name: "黄金" },
+  { category: "商品市场", label: "原油价格", item_type: "commodity", symbol: "", keyword: "oil prices", display_name: "原油价格" },
+  { category: "商品市场", label: "布伦特原油", item_type: "commodity", symbol: "", keyword: "Brent crude", display_name: "布伦特原油" },
+  { category: "商品市场", label: "WTI 原油", item_type: "commodity", symbol: "", keyword: "WTI crude", display_name: "WTI 原油" },
+  { category: "商品市场", label: "天然气", item_type: "commodity", symbol: "", keyword: "natural gas", display_name: "天然气" },
+  { category: "商品市场", label: "铜", item_type: "commodity", symbol: "", keyword: "copper", display_name: "铜" },
+  { category: "商品市场", label: "白银", item_type: "commodity", symbol: "", keyword: "silver", display_name: "白银" },
+  { category: "商品市场", label: "大宗商品", item_type: "commodity", symbol: "", keyword: "commodities", display_name: "大宗商品" },
+  { category: "商品市场", label: "OPEC", item_type: "commodity", symbol: "", keyword: "OPEC", display_name: "OPEC" },
+  { category: "商品市场", label: "原油库存", item_type: "commodity", symbol: "", keyword: "oil inventories", display_name: "原油库存" },
+
+  { category: "财报与业绩", label: "财报", item_type: "topic", symbol: "", keyword: "earnings", display_name: "财报" },
+  { category: "财报与业绩", label: "季度业绩", item_type: "topic", symbol: "", keyword: "quarterly results", display_name: "季度业绩" },
+  { category: "财报与业绩", label: "营收指引", item_type: "topic", symbol: "", keyword: "revenue guidance", display_name: "营收指引" },
+  { category: "财报与业绩", label: "利润率", item_type: "topic", symbol: "", keyword: "profit margin", display_name: "利润率" },
+  { category: "财报与业绩", label: "EPS 每股收益", item_type: "topic", symbol: "", keyword: "EPS", display_name: "EPS 每股收益" },
+  { category: "财报与业绩", label: "业绩超预期", item_type: "topic", symbol: "", keyword: "earnings beat", display_name: "业绩超预期" },
+  { category: "财报与业绩", label: "业绩不及预期", item_type: "topic", symbol: "", keyword: "earnings miss", display_name: "业绩不及预期" },
+  { category: "财报与业绩", label: "资本开支", item_type: "topic", symbol: "", keyword: "capital expenditure", display_name: "资本开支" },
+  { category: "财报与业绩", label: "云业务收入", item_type: "topic", symbol: "", keyword: "cloud revenue", display_name: "云业务收入" },
+  { category: "财报与业绩", label: "AI 收入", item_type: "topic", symbol: "", keyword: "AI revenue", display_name: "AI 收入" },
+
+  { category: "公司事件", label: "并购", item_type: "topic", symbol: "", keyword: "acquisition", display_name: "并购" },
+  { category: "公司事件", label: "回购", item_type: "topic", symbol: "", keyword: "share buyback", display_name: "回购" },
+  { category: "公司事件", label: "裁员", item_type: "topic", symbol: "", keyword: "layoffs", display_name: "裁员" },
+  { category: "公司事件", label: "管理层变动", item_type: "topic", symbol: "", keyword: "executive change", display_name: "管理层变动" },
+  { category: "公司事件", label: "新产品发布", item_type: "topic", symbol: "", keyword: "product launch", display_name: "新产品发布" },
+  { category: "公司事件", label: "供应链", item_type: "topic", symbol: "", keyword: "supply chain", display_name: "供应链" },
+  { category: "公司事件", label: "产能扩张", item_type: "topic", symbol: "", keyword: "capacity expansion", display_name: "产能扩张" },
+  { category: "公司事件", label: "合作伙伴", item_type: "topic", symbol: "", keyword: "partnership", display_name: "合作伙伴" },
+  { category: "公司事件", label: "订单", item_type: "topic", symbol: "", keyword: "orders", display_name: "订单" },
+  { category: "公司事件", label: "价格调整", item_type: "topic", symbol: "", keyword: "price cut", display_name: "价格调整" },
+
+  { category: "监管与风险", label: "反垄断", item_type: "topic", symbol: "", keyword: "antitrust", display_name: "反垄断" },
+  { category: "监管与风险", label: "出口管制", item_type: "topic", symbol: "", keyword: "export controls", display_name: "出口管制" },
+  { category: "监管与风险", label: "数据隐私", item_type: "topic", symbol: "", keyword: "data privacy", display_name: "数据隐私" },
+  { category: "监管与风险", label: "监管调查", item_type: "topic", symbol: "", keyword: "regulatory investigation", display_name: "监管调查" },
+  { category: "监管与风险", label: "诉讼", item_type: "topic", symbol: "", keyword: "lawsuit", display_name: "诉讼" },
+  { category: "监管与风险", label: "地缘政治风险", item_type: "topic", symbol: "", keyword: "geopolitical risk", display_name: "地缘政治风险" },
+  { category: "监管与风险", label: "制裁", item_type: "topic", symbol: "", keyword: "sanctions", display_name: "制裁" },
+  { category: "监管与风险", label: "会计风险", item_type: "topic", symbol: "", keyword: "accounting risk", display_name: "会计风险" },
+  { category: "监管与风险", label: "网络安全事件", item_type: "topic", symbol: "", keyword: "cybersecurity incident", display_name: "网络安全事件" },
+  { category: "监管与风险", label: "召回", item_type: "topic", symbol: "", keyword: "product recall", display_name: "召回" },
+
+  { category: "市场情绪", label: "市场波动", item_type: "topic", symbol: "", keyword: "market volatility", display_name: "市场波动" },
+  { category: "市场情绪", label: "避险情绪", item_type: "topic", symbol: "", keyword: "risk-off sentiment", display_name: "避险情绪" },
+  { category: "市场情绪", label: "风险偏好", item_type: "topic", symbol: "", keyword: "risk appetite", display_name: "风险偏好" },
+  { category: "市场情绪", label: "分析师评级", item_type: "topic", symbol: "", keyword: "analyst rating", display_name: "分析师评级" },
+  { category: "市场情绪", label: "目标价调整", item_type: "topic", symbol: "", keyword: "price target change", display_name: "目标价调整" },
+  { category: "市场情绪", label: "机构持仓", item_type: "topic", symbol: "", keyword: "institutional holdings", display_name: "机构持仓" },
+  { category: "市场情绪", label: "资金流入", item_type: "topic", symbol: "", keyword: "fund inflows", display_name: "资金流入" },
+  { category: "市场情绪", label: "资金流出", item_type: "topic", symbol: "", keyword: "fund outflows", display_name: "资金流出" },
+  { category: "市场情绪", label: "期权活动", item_type: "topic", symbol: "", keyword: "options activity", display_name: "期权活动" },
+  { category: "市场情绪", label: "做空兴趣", item_type: "topic", symbol: "", keyword: "short interest", display_name: "做空兴趣" },
+
+  { category: "行业主题", label: "云计算", item_type: "topic", symbol: "", keyword: "cloud computing", display_name: "云计算" },
+  { category: "行业主题", label: "自动驾驶", item_type: "topic", symbol: "", keyword: "autonomous driving", display_name: "自动驾驶" },
+  { category: "行业主题", label: "电动车", item_type: "topic", symbol: "", keyword: "electric vehicles", display_name: "电动车" },
+  { category: "行业主题", label: "机器人", item_type: "topic", symbol: "", keyword: "robotics", display_name: "机器人" },
+  { category: "行业主题", label: "网络安全", item_type: "topic", symbol: "", keyword: "cybersecurity", display_name: "网络安全" },
+  { category: "行业主题", label: "企业软件", item_type: "topic", symbol: "", keyword: "enterprise software", display_name: "企业软件" },
+  { category: "行业主题", label: "广告业务", item_type: "topic", symbol: "", keyword: "advertising revenue", display_name: "广告业务" },
+  { category: "行业主题", label: "流媒体", item_type: "topic", symbol: "", keyword: "streaming", display_name: "流媒体" },
+  { category: "行业主题", label: "医疗科技", item_type: "topic", symbol: "", keyword: "healthcare technology", display_name: "医疗科技" },
+  { category: "行业主题", label: "金融科技", item_type: "topic", symbol: "", keyword: "fintech", display_name: "金融科技" },
+];
+
+var WATCHLIST_CATEGORIES = [
+  "科技股", "AI 与半导体", "宏观政策", "商品市场", "财报与业绩",
+  "公司事件", "监管与风险", "市场情绪", "行业主题", "自定义关注"
+];
+
+var WATCHLIST_BUNDLES = [
+  {
+    name: "科技股日报",
+    keys: ["NVDA", "AMD", "AAPL", "MSFT", "AI chips", "semiconductor", "earnings"]
+  },
+  {
+    name: "AI 半导体追踪",
+    keys: ["NVIDIA", "AMD", "TSMC", "AI chips", "GPU", "data center", "HBM memory", "export controls"]
+  },
+  {
+    name: "宏观与黄金",
+    keys: ["Fed interest rate", "FOMC", "inflation", "CPI", "treasury yields", "US dollar index", "gold"]
+  },
+  {
+    name: "原油与通胀",
+    keys: ["oil prices", "Brent crude", "WTI crude", "OPEC", "oil inventories", "inflation", "US dollar index"]
+  }
+];

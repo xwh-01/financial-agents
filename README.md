@@ -147,6 +147,36 @@ python scripts\check_report_guard.py
 
 不依赖 Celery/Redis/Kafka，纯 SQLite + asyncio。
 
+### 自动日报验证流程
+
+```powershell
+# 1. 创建 watchlist + items（前端或 API）
+# 2. 创建 daily job
+curl -X POST http://127.0.0.1:8010/api/report-jobs/create-daily-once \
+  -H "Authorization: Bearer $token"
+
+# 3. 查看 jobs
+curl http://127.0.0.1:8010/api/report-jobs -H "Authorization: Bearer $token"
+
+# 4. 运行 job
+curl -X POST http://127.0.0.1:8010/api/report-jobs/{job_id}/run \
+  -H "Authorization: Bearer $token"
+
+# 5. 查看今日报告
+curl http://127.0.0.1:8010/api/reports/today -H "Authorization: Bearer $token"
+
+# 6. 前端 Today 页面查看
+# http://127.0.0.1:5173/#today
+
+# 冒烟测试含 daily check
+python agent-python/scripts/smoke_test.py --daily-job-check
+```
+
+- `ENABLE_REPORT_SCHEDULER` 默认 `false`
+- Scheduler 只创建 daily job（不执行 LangGraph）
+- Worker 执行 job（`python -m report_jobs.worker`）
+- 同一天同一 watchlist 已有 pending/running/succeeded daily job 时不重复创建
+
 ## License
 
 Internal use only. Not financial advice.

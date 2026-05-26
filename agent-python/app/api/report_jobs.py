@@ -4,6 +4,7 @@ from auth.dependencies import get_current_user
 from auth.schemas import UserResponse
 from report_jobs.schemas import CreateReportJobRequest, ReportJobResponse
 from report_jobs.service import (
+    create_daily_jobs_for_user,
     create_manual_job_for_watchlist,
     get_user_job,
     list_user_jobs,
@@ -71,3 +72,10 @@ async def run_pending_once_route(
 ):
     completed = await run_pending_jobs_once(limit=3)
     return {"completed": completed}
+
+
+@router.post("/api/report-jobs/create-daily-once")
+async def create_daily_once_route(
+    current_user: UserResponse = Depends(get_current_user),
+):
+    return create_daily_jobs_for_user(user_id=current_user.id)
