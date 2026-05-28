@@ -7,9 +7,10 @@ from market_pulse.state import MarketPulseGraphState
 async def collect_news_node(
     state: MarketPulseGraphState,
 ) -> MarketPulseGraphState:
-    """Build candidate news pool from query search + multi-provider RSS."""
+    """Build candidate news pool from query search + multi-provider RSS + ticker feeds."""
     print("[langgraph-market] collect_news")
     query = state.get("query", "").strip()
+    tickers = state.get("tickers", [])
     candidate_news = []
 
     # Try query-based news API search first (if configured).
@@ -26,11 +27,11 @@ async def collect_news_node(
         except Exception as exc:
             print(f"[langgraph-market] query news search failed: {exc}")
 
-    # Multi-provider RSS aggregation (CNBC, MarketWatch, NASDAQ, Seeking Alpha, Yahoo).
+    # Multi-provider RSS aggregation (CNBC, MarketWatch, NASDAQ, Seeking Alpha, Yahoo, WSJ).
     try:
-        rss_items = await collect_fin_rss_news(limit=200)
+        rss_items = await collect_fin_rss_news(limit=200, tickers=tickers if tickers else None)
         candidate_news.extend(rss_items)
-        print(f"[langgraph-market] multi-rss collected={len(rss_items)}")
+        print(f"[langgraph-market] multi-rss collected={len(rss_items)} tickers={tickers}")
     except Exception as exc:
         print(f"[langgraph-market] multi-rss failed: {exc}")
 

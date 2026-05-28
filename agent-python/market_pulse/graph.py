@@ -44,12 +44,13 @@ def _build_langgraph_market_pulse():
 langgraph_market_pulse = _build_langgraph_market_pulse()
 
 
-async def run_langgraph_market_pulse(query: str, max_items: int = 5) -> dict:
+async def run_langgraph_market_pulse(query: str, max_items: int = 5, tickers: list[str] | None = None) -> dict:
     try:
         final_state = await langgraph_market_pulse.ainvoke(
             {
                 "query": query,
                 "max_items": max_items,
+                "tickers": tickers or [],
                 "error_message": None,
             }
         )

@@ -84,7 +84,14 @@ async def generate_watchlist_report(
         watchlist_id=watchlist_id,
     )
     query = build_watchlist_query(watchlist, items)
-    result = await run_langgraph_market_pulse(query=query, max_items=max_items)
+
+    tickers = list({
+        item.get("symbol", "").strip().upper()
+        for item in items
+        if item.get("item_type") == "ticker" and item.get("symbol", "").strip()
+    })
+
+    result = await run_langgraph_market_pulse(query=query, max_items=max_items, tickers=tickers)
     report_id = save_watchlist_report(
         user_id=user_id,
         watchlist_id=watchlist_id,

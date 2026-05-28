@@ -6,6 +6,7 @@ from market_pulse.schemas import DailyNewsAnalysis, NewsItem, WorkflowResult
 class MarketPulseGraphState(TypedDict, total=False):
     query: str
     max_items: int
+    tickers: list[str]
     candidate_news: list[NewsItem]
     ranked_news: list[NewsItem]
     selected_news: list[NewsItem]
