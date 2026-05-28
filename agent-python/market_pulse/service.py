@@ -1,7 +1,7 @@
 import asyncio
 
 from clients.news_client import search_news
-from clients.rss_client import collect_company_market_news
+from clients.fin_news_rss import collect_fin_rss_news
 from market_pulse.analyzers.report_generator import (
     build_daily_trend_report,
     build_financial_recommendations,
@@ -185,10 +185,8 @@ async def run_market_pulse(request: MarketPulseRequest) -> MarketPulseResponse:
         },
     )
 
-    candidate_news = await collect_company_market_news(
+    candidate_news = await collect_fin_rss_news(
         limit=request.limit,
-        language=request.language,
-        translate_to_zh=False,
     )
     print("[market-pulse] candidate:", len(candidate_news))
 

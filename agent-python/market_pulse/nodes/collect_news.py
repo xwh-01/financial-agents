@@ -1,5 +1,5 @@
 from clients.news_client import search_news
-from clients.rss_client import collect_company_market_news, dedupe_news_items
+from clients.fin_news_rss import collect_fin_rss_news
 from market_pulse.filters.news_filter import dedupe_news, filter_fresh_news
 from market_pulse.state import MarketPulseGraphState
 
@@ -7,11 +7,12 @@ from market_pulse.state import MarketPulseGraphState
 async def collect_news_node(
     state: MarketPulseGraphState,
 ) -> MarketPulseGraphState:
-    """Build the candidate news pool from query search or latest market news."""
+    """Build candidate news pool from query search + multi-provider RSS."""
     print("[langgraph-market] collect_news")
     query = state.get("query", "").strip()
     candidate_news = []
 
+    # Try query-based news API search first (if configured).
     if query:
         try:
             candidate_news.extend(
@@ -25,18 +26,14 @@ async def collect_news_node(
         except Exception as exc:
             print(f"[langgraph-market] query news search failed: {exc}")
 
+    # Multi-provider RSS aggregation (CNBC, MarketWatch, NASDAQ, Seeking Alpha, Yahoo).
     try:
-        candidate_news.extend(
-            await collect_company_market_news(
-                limit=50,
-                language="en",
-                translate_to_zh=False,
-            )
-        )
+        rss_items = await collect_fin_rss_news(limit=200)
+        candidate_news.extend(rss_items)
+        print(f"[langgraph-market] multi-rss collected={len(rss_items)}")
     except Exception as exc:
-        print(f"[langgraph-market] company market news failed: {exc}")
+        print(f"[langgraph-market] multi-rss failed: {exc}")
 
-    candidate_news = dedupe_news_items(candidate_news)
     raw_count = len(candidate_news)
     print(f"[langgraph-market] raw candidate_news={raw_count}")
 
