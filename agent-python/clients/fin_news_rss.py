@@ -6,6 +6,7 @@ Seeking Alpha, and Yahoo Finance via public RSS feeds.
 No API keys required.
 """
 
+import asyncio
 import random
 from datetime import datetime, timezone
 from typing import Optional
@@ -17,7 +18,10 @@ import httpx
 from market_pulse.schemas import NewsItem
 
 DEFAULT_TIMEOUT = 15
-DEFAULT_LIMIT = 50
+PER_PROVIDER_CAP = 60
+DEFAULT_LIMIT = 200
+RETRY_MAX = 3
+RETRY_BASE_SLEEP = 0.5
 
 _USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
@@ -52,12 +56,21 @@ def _as_text(value) -> str:
 
 CNBC_TOPICS = {
     "top_news": 100003114,
+    "world_news": 100727362,
+    "us_news": 15837362,
+    "asia_news": 19832390,
+    "europe_news": 19794221,
+    "business": 10001147,
     "investing": 15839069,
     "economy": 20910258,
     "technology": 19854910,
     "earnings": 15839135,
     "finance": 10000664,
     "market_insider": 20409666,
+    "commentary": 100370673,
+    "politics": 10000113,
+    "real_estate": 10000115,
+    "energy": 19836768,
 }
 
 CNBC_URL = "https://www.cnbc.com/id/{topic_id}/device/rss/rss.html"
@@ -144,6 +157,17 @@ def _yahoo_ticker_url(tickers: list[str]) -> str:
     return YAHOO_HEADLINE_URL.format(symbols=",".join(tickers[:20]))
 
 
+WSJ_TOPICS = [
+    "WSJcomUSBusiness",
+]
+
+WSJ_URL = "https://feeds.a.dj.com/rss/{topic}.xml"
+
+
+def _wsj_urls() -> list[str]:
+    return [WSJ_URL.format(topic=t) for t in WSJ_TOPICS]
+
+
 # ──────────────────────────────────────────────
 # Parsing helpers — convert RSS entries to NewsItem
 # ──────────────────────────────────────────────
@@ -201,21 +225,29 @@ async def _fetch_url(
     url: str,
     source_label: str,
 ) -> list[NewsItem]:
-    """Fetch a single RSS URL and return parsed NewsItems."""
+    """Fetch a single RSS URL with retry and exponential backoff."""
     headers = {
         "User-Agent": _random_ua(),
         "Accept": "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.7",
     }
-    try:
-        resp = await client.get(url, headers=headers, follow_redirects=True)
-        resp.raise_for_status()
-        entries = _parse_feed(resp.content)
-        items = _to_news_items(entries, source=_domain(url), provider=source_label)
-        print(f"[fin-rss] {source_label:22s} items={len(items):3d} {url[:80]}")
-        return items
-    except Exception as exc:
-        print(f"[fin-rss] {source_label:22s} FAILED  {url[:80]}  -> {exc}")
-        return []
+    last_exc = None
+    for attempt in range(RETRY_MAX):
+        try:
+            resp = await client.get(url, headers=headers, follow_redirects=True)
+            resp.raise_for_status()
+            entries = _parse_feed(resp.content)
+            items = _to_news_items(entries, source=_domain(url), provider=source_label)
+            if attempt > 0:
+                print(f"[fin-rss] {source_label:22s} recovered on attempt {attempt+1}")
+            print(f"[fin-rss] {source_label:22s} items={len(items):3d} {url[:80]}")
+            return items
+        except Exception as exc:
+            last_exc = exc
+            if attempt < RETRY_MAX - 1:
+                sleep_s = RETRY_BASE_SLEEP * (2 ** attempt)
+                await asyncio.sleep(sleep_s)
+    print(f"[fin-rss] {source_label:22s} FAILED  {url[:80]}  -> {last_exc}")
+    return []
 
 
 async def _fetch_urls(
@@ -270,7 +302,10 @@ async def collect_fin_rss_news(
         yh_items = await _fetch_urls(client, _yahoo_urls(), "yahoo")
         all_items.extend(yh_items)
 
-        # 7. Ticker-targeted feeds (if tickers provided)
+        wsj_items = await _fetch_urls(client, _wsj_urls(), "wsj")
+        all_items.extend(wsj_items)
+
+        # Ticker-targeted feeds (if tickers provided)
         if tickers:
             ticker_set = set(t.upper().strip() for t in tickers if t)
             if ticker_set:
@@ -297,11 +332,21 @@ async def collect_fin_rss_news(
 
                 print(f"[fin-rss] ticker feeds extra items collected")
 
-    # Deduplicate by URL and title.
-    deduped = _dedupe(all_items)
+    # Cap each provider for diversity, then dedupe.
+    capped: list[NewsItem] = []
+    from collections import Counter as _Counter
+    provider_counts: dict[str, int] = {}
+    for item in all_items:
+        p = item.provider
+        cur = provider_counts.get(p, 0)
+        if cur < PER_PROVIDER_CAP:
+            capped.append(item)
+            provider_counts[p] = cur + 1
+
+    deduped = _dedupe(capped)
     print(
         "[fin-rss] "
-        f"collected={len(all_items)} deduped={len(deduped)} providers=6"
+        f"raw={len(all_items)} capped={len(capped)} deduped={len(deduped)}"
     )
 
     return deduped[:max(0, limit)]
