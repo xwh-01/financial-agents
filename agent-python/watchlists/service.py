@@ -77,7 +77,7 @@ def build_watchlist_query(watchlist: dict, items: list[dict]) -> str:
 async def generate_watchlist_report(
     user_id: int,
     watchlist_id: int,
-    max_items: int = 5,
+    max_items: int = 8,
 ) -> tuple[int, dict]:
     watchlist, items = get_owned_watchlist_with_items(
         user_id=user_id,

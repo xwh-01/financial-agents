@@ -34,8 +34,8 @@ localStorage.setItem("mkt_base_url", "http://your-backend:8010")
 | `#login` | 登录 | Email + Password |
 | `#register` | 注册 | 注册后跳转登录 |
 | `#watchlists` | Watchlist 列表 | 创建/查看 watchlist |
-| `#watchlist-detail/{id}` | Watchlist 详情 | 添加 item (ticker/topic/macro/commodity/custom) + 创建 job |
-| `#jobs` | 任务列表 | 查看 job 状态 + 手动 Run |
+| `#watchlist-detail/{id}` | Watchlist 详情 | 添加 item (ticker/topic/macro/commodity/custom) + 生成今日报告 |
+| `#jobs` | 任务状态 | 查看 report job 状态和调试；普通用户通常只需要在关注列表中点击生成今日报告 |
 | `#reports` | 报告列表 | 含 compliance_status 标识 |
 | `#report-detail/{id}` | 报告详情 | disclaimer、summary、source items（含可点击 URL） |
 
@@ -53,11 +53,9 @@ localStorage.setItem("mkt_base_url", "http://your-backend:8010")
    - item_type=topic, keyword=AI chips, display_name=AI Chips
    - item_type=macro, keyword=Fed interest rate, display_name=Fed Interest Rate
    - item_type=commodity, keyword=gold, display_name=Gold
-7. 点击 Create Report Job
-8. 顶部点击 Jobs → 找到刚创建的 job → 点击 Run
-9. 等待几秒后刷新（或再次点击 Jobs 菜单）
-10. job 状态变为 succeeded 后，点击 View Report
-11. 查看 Report Detail 页面：
+7. 点击“生成今日报告”
+8. 前端会自动创建并执行 report job，生成后直接跳转到 Report Detail
+9. 查看 Report Detail 页面：
     - 是否显示 disclaimer
     - 是否显示 compliance_status
     - source items 的 URL 是否可点击
@@ -94,5 +92,5 @@ Watchlist 详情页支持通过预设板块快速选择关注项，无需手动�
 2. 在"推荐组合"中选择一个组合，或在板块中选择单项
 3. 查看待添加列表
 4. 点击"批量添加到关注列表"
-5. 创建报告任务
-6. 运行任务并查看报告
+5. 点击“生成今日报告”
+6. 底层由 report job 创建并执行实现，生成后进入报告详情页

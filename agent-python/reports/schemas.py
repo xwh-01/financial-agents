@@ -9,9 +9,15 @@ class ReportResponse(BaseModel):
     query: str
     summary: str | None = None
     risk_level: str | None = None
+    overall_risk_level: str | None = None
+    candidate_news_count: int | None = None
+    filtered_news_count: int | None = None
+    analyzed_news_count: int | None = None
     report_type: str | None = None
     compliance_status: str | None = None
     created_at: str | None = None
+    report: str | None = None
+    generated_at: str | None = None
 
 
 class ReportItemResponse(BaseModel):

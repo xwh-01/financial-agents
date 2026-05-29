@@ -157,5 +157,215 @@
       "TSMC AI demand",
       "semiconductor foundry"
     ]
+  },
+  {
+    "company": "ASML",
+    "ticker": "ASML",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=ASML"
+    ],
+    "search_queries": [
+      "ASML",
+      "ASML earnings",
+      "ASML lithography",
+      "ASML EUV demand",
+      "semiconductor equipment"
+    ]
+  },
+  {
+    "company": "Qualcomm",
+    "ticker": "QCOM",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=QCOM"
+    ],
+    "search_queries": [
+      "Qualcomm",
+      "QCOM",
+      "Qualcomm earnings",
+      "Snapdragon AI",
+      "Qualcomm smartphone chips"
+    ]
+  },
+  {
+    "company": "Micron",
+    "ticker": "MU",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=MU"
+    ],
+    "search_queries": [
+      "Micron",
+      "MU",
+      "Micron earnings",
+      "HBM memory",
+      "DRAM NAND demand"
+    ]
+  },
+  {
+    "company": "Intel",
+    "ticker": "INTC",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=INTC"
+    ],
+    "search_queries": [
+      "Intel",
+      "INTC",
+      "Intel earnings",
+      "Intel foundry",
+      "Intel AI chips"
+    ]
+  },
+  {
+    "company": "Oracle",
+    "ticker": "ORCL",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=ORCL"
+    ],
+    "search_queries": [
+      "Oracle",
+      "ORCL",
+      "Oracle earnings",
+      "Oracle cloud",
+      "Oracle AI infrastructure"
+    ]
+  },
+  {
+    "company": "Salesforce",
+    "ticker": "CRM",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=CRM"
+    ],
+    "search_queries": [
+      "Salesforce",
+      "CRM",
+      "Salesforce earnings",
+      "Salesforce AI",
+      "enterprise software"
+    ]
+  },
+  {
+    "company": "Netflix",
+    "ticker": "NFLX",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=NFLX"
+    ],
+    "search_queries": [
+      "Netflix",
+      "NFLX",
+      "Netflix earnings",
+      "Netflix subscribers",
+      "streaming revenue"
+    ]
+  },
+  {
+    "company": "JPMorgan Chase",
+    "ticker": "JPM",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=JPM"
+    ],
+    "search_queries": [
+      "JPMorgan Chase",
+      "JPM",
+      "JPMorgan earnings",
+      "bank earnings",
+      "net interest income"
+    ]
+  },
+  {
+    "company": "Bank of America",
+    "ticker": "BAC",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=BAC"
+    ],
+    "search_queries": [
+      "Bank of America",
+      "BAC",
+      "Bank of America earnings",
+      "bank stocks",
+      "net interest income"
+    ]
+  },
+  {
+    "company": "Exxon Mobil",
+    "ticker": "XOM",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=XOM"
+    ],
+    "search_queries": [
+      "Exxon Mobil",
+      "XOM",
+      "Exxon earnings",
+      "oil prices",
+      "energy stocks"
+    ]
+  },
+  {
+    "company": "Chevron",
+    "ticker": "CVX",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=CVX"
+    ],
+    "search_queries": [
+      "Chevron",
+      "CVX",
+      "Chevron earnings",
+      "oil prices",
+      "energy stocks"
+    ]
+  },
+  {
+    "company": "Eli Lilly",
+    "ticker": "LLY",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=LLY"
+    ],
+    "search_queries": [
+      "Eli Lilly",
+      "LLY",
+      "Eli Lilly earnings",
+      "weight loss drugs",
+      "pharma stocks"
+    ]
+  },
+  {
+    "company": "UnitedHealth",
+    "ticker": "UNH",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=UNH"
+    ],
+    "search_queries": [
+      "UnitedHealth",
+      "UNH",
+      "UnitedHealth earnings",
+      "health insurance",
+      "healthcare stocks"
+    ]
+  },
+  {
+    "company": "Walmart",
+    "ticker": "WMT",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=WMT"
+    ],
+    "search_queries": [
+      "Walmart",
+      "WMT",
+      "Walmart earnings",
+      "retail sales",
+      "consumer spending"
+    ]
+  },
+  {
+    "company": "Costco",
+    "ticker": "COST",
+    "rss_feeds": [
+      "https://finance.yahoo.com/rss/headline?s=COST"
+    ],
+    "search_queries": [
+      "Costco",
+      "COST",
+      "Costco earnings",
+      "retail sales",
+      "consumer spending"
+    ]
   }
 ]

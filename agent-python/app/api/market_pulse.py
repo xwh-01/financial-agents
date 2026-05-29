@@ -33,7 +33,7 @@ router = APIRouter()
 
 class LangGraphMarketPulseRequest(BaseModel):
     query: str
-    max_items: int = 5
+    max_items: int = 8
 
 
 @router.post("/agent/analyze")

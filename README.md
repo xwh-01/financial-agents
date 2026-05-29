@@ -8,10 +8,12 @@
 
 ```
 登录/注册 → 创建 Watchlist → 选择关注项（9个板块/90+预设/搜索/推荐组合）
-         → 创建 Report Job → 手动 Run 或 Worker 自动执行
+         → 用户点击生成今日报告，底层由 report job 创建并执行，生成后进入报告详情页
          → LangGraph Market Pulse 分析 → 保存报告 + report_items
          → 查看 Report Detail（disclaimer / compliance / source URL）
 ```
+
+说明：Report Job 仍然是底层任务模型，Jobs 页面用于状态查看和调试。
 
 ## 快速启动
 

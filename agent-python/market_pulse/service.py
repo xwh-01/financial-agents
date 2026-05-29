@@ -193,7 +193,7 @@ async def run_market_pulse(request: MarketPulseRequest) -> MarketPulseResponse:
     ranked_news = filter_and_rank_news(candidate_news)
     print("[market-pulse] ranked:", len(ranked_news))
 
-    analysis_limit = min(request.max_items, 5)
+    analysis_limit = min(request.max_items, 10)
     news_items = ranked_news[:analysis_limit]
 
     print("[market-pulse] max_items requested:", request.max_items)
@@ -284,7 +284,7 @@ async def run_market_pulse(request: MarketPulseRequest) -> MarketPulseResponse:
     recommendations = build_financial_recommendations(trends)
     print("[market-pulse] recommendations:", len(recommendations))
 
-    report = build_market_pulse_report(trends, recommendations)
+    report = build_market_pulse_report(trends, recommendations, analyzed_news)
     print("[market-pulse] done")
 
     return MarketPulseResponse(
@@ -301,8 +301,16 @@ async def run_market_pulse(request: MarketPulseRequest) -> MarketPulseResponse:
     )
 
 
-async def run_langgraph_market_pulse(query: str, max_items: int = 5) -> dict:
-    return await _run_langgraph_market_pulse(query=query, max_items=max_items)
+async def run_langgraph_market_pulse(
+    query: str,
+    max_items: int = 8,
+    tickers: list[str] | None = None,
+) -> dict:
+    return await _run_langgraph_market_pulse(
+        query=query,
+        max_items=max_items,
+        tickers=tickers,
+    )
 
 
 def list_reports(limit: int = 20) -> list[dict]:

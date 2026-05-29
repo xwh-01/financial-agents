@@ -15,8 +15,8 @@ Financial Agents 是一个 **Watchlist 驱动的 Market Pulse 财经新闻报告
 | 1 | 注册/登录 | `#register` → `#login` | `app/api/auth.py` → `auth/` |
 | 2 | 创建 Watchlist | `#watchlists` | `app/api/watchlists.py` |
 | 3 | 选择关注项 | `#watchlist-detail/{id}` | `app/api/watchlists.py` + 预设来自 `frontend/js/presets.js` |
-| 4 | 创建 Report Job | Watchlist 详情页 "创建报告任务" | `POST /api/watchlists/{id}/report-jobs` → `report_jobs/` |
-| 5 | 运行 Job | `#jobs` 页面 "Run" 按钮 | `POST /api/report-jobs/{id}/run` → `report_jobs/service.py` → LangGraph |
+| 4 | 生成今日报告 | Watchlist 详情页 "生成今日报告" | 前端依次调用 `POST /api/watchlists/{id}/report-jobs` 和 `POST /api/report-jobs/{id}/run` → LangGraph |
+| 5 | 查看任务状态 | `#jobs` 页面 | 用于调试/查看 report job 状态，普通用户通常只需要在关注列表中点击生成今日报告 |
 | 6 | 查看今日报告 | `#today` 或 `#reports` | `GET /api/reports/today` → `reports/` |
 | 7 | 查看报告详情 | `#report-detail/{id}` | `GET /api/reports/{id}` → 含 disclaimer/compliance/source items |
 
@@ -44,9 +44,9 @@ python -m http.server 5173
 6. 在推荐组合中点击"科技股日报"或手动选择关注项
 7. 在板块中选择 NVDA、AI chips、Fed interest rate、gold
 8. 点击"批量添加"
-9. 点击"创建报告任务"
-10. 跳转到 Jobs 页面 → 点击 Run
-11. 等待 job 变为 succeeded
+9. 点击"生成今日报告"
+10. 前端自动创建并执行 report job
+11. 成功后跳转到报告详情；若未立即返回 report_id，可到任务状态页查看 job 状态
 12. 点击 View Report → 查看详情
     - 确认有 disclaimer
     - 确认有 compliance_status

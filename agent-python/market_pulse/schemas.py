@@ -188,7 +188,7 @@ class MarketPulseRequest(BaseModel):
     limit: int = 50
     language: str = "en"
     translate_to_zh: bool = False
-    max_items: int = 5
+    max_items: int = 8
 
 
 class FinancialRecommendation(BaseModel):

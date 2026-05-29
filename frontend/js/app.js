@@ -87,7 +87,7 @@ var App = (function () {
       navItem("#watchlists", SVG.watchlists, "Watchlists", route === "watchlists" || route === "" || route === "watchlist-detail"),
       navItem("#reports", SVG.reports, "Reports", route === "reports" || route === "report-detail"),
       '<div class="nav-divider"></div>',
-      navItem("#jobs", SVG.jobs, "Jobs", route === "jobs"),
+      navItem("#jobs", SVG.jobs, "任务状态", route === "jobs"),
     ].join("");
 
     $sidebarFooter.innerHTML = isAuth
@@ -113,11 +113,160 @@ var App = (function () {
     el.style.display = "block";
   }
 
+  function setBusyButton(btn, text) {
+    if (!btn) return function () {};
+    var oldText = btn.textContent;
+    var oldDisabled = btn.disabled;
+    btn.disabled = true;
+    btn.textContent = text;
+    return function () {
+      btn.disabled = oldDisabled;
+      btn.textContent = oldText;
+    };
+  }
+
   function badge(text, type) {
     return '<span class="badge ' + (type || "neutral") + '">' + esc(text) + '</span>';
   }
   function esc(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function escAttr(s) { return esc(s).replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function h(c, t) { return "<" + c + ">" + esc(t) + "</" + c + ">"; }
+  function linkify(s) {
+    return esc(s).replace(/(https?:\/\/[^\s)]+)/g, function (url) {
+      return '<a href="' + escAttr(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a>';
+    });
+  }
+  function fmtTime(value) {
+    if (!value) return "";
+    var text = String(value).trim();
+    var normalized = text;
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) {
+      normalized = text.replace(" ", "T") + "Z";
+    }
+    var d = new Date(normalized);
+    if (isNaN(d.getTime())) return text;
+    return d.toLocaleString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  function formatReportText(text) {
+    var lines = String(text || "").split(/\r?\n/);
+    var html = [];
+    var inList = false;
+    function closeList() {
+      if (inList) {
+        html.push("</ul>");
+        inList = false;
+      }
+    }
+    lines.forEach(function (raw) {
+      var line = raw.trim();
+      if (!line) {
+        closeList();
+        html.push('<div class="report-spacer"></div>');
+        return;
+      }
+      if (/^#{1,3}\s+/.test(line)) {
+        closeList();
+        html.push('<div class="report-heading">' + esc(line.replace(/^#{1,3}\s+/, "")) + '</div>');
+      } else if (/^([一二三四五六七八九十]+[、.]|\d+[.、])\s*/.test(line)) {
+        closeList();
+        html.push('<div class="report-heading">' + esc(line) + '</div>');
+      } else if (/^[-*]\s+/.test(line)) {
+        if (!inList) {
+          html.push("<ul>");
+          inList = true;
+        }
+        html.push("<li>" + linkify(line.replace(/^[-*]\s+/, "")) + "</li>");
+      } else {
+        closeList();
+        html.push("<p>" + linkify(line) + "</p>");
+      }
+    });
+    closeList();
+    return html.join("");
+  }
+  function sourceHost(url) {
+    if (!url) return "";
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch (_) {
+      return "";
+    }
+  }
+  function riskBadgeType(risk) {
+    var text = String(risk || "").toLowerCase();
+    if (text.indexOf("high") >= 0 || text.indexOf("red") >= 0) return "bad";
+    if (text.indexOf("medium") >= 0 || text.indexOf("warning") >= 0) return "warn";
+    if (text.indexOf("low") >= 0 || text.indexOf("safe") >= 0) return "good";
+    return "neutral";
+  }
+  function formatScore(value) {
+    if (value === undefined || value === null || value === "") return "";
+    var n = Number(value);
+    if (isNaN(n)) return String(value);
+    return n.toFixed(2);
+  }
+  function cleanSourceText(value) {
+    var text = String(value || "")
+      .replace(/^#{1,6}\s*/gm, "")
+      .replace(/[*`_>]/g, "")
+      .replace(/^\s*[-+]\s+/gm, "")
+      .replace(/^\s*\d+[.)、]\s+/gm, "")
+      .split(/\r?\n/)
+      .map(function (line) { return line.trim(); })
+      .filter(function (line) {
+        return line && !/^生成时间[:：]/.test(line) && !/^Generated[:：]/i.test(line);
+      })
+      .join(" ");
+    return text.replace(/\s+/g, " ").trim();
+  }
+  function metaPill(label, value) {
+    if (value === undefined || value === null || value === "") return "";
+    return '<span class="source-pill"><span>' + esc(label) + '</span><strong>' + esc(value) + '</strong></span>';
+  }
+  function renderSourceCard(item, idx) {
+    var url = item.source_url || "";
+    var host = sourceHost(url);
+    var sourceName = item.source_name || host || "source";
+    var title = item.title || "Untitled";
+    var titleHtml = url
+      ? '<a href="' + escAttr(url) + '" target="_blank" rel="noopener">' + esc(title) + '</a>'
+      : esc(title);
+    var score = formatScore(item.relevance_score);
+    var published = fmtTime(item.published_at) || item.published_at || "";
+    var sourceLine = url
+      ? '<a href="' + escAttr(url) + '" target="_blank" rel="noopener">' + esc(sourceName) + '</a>'
+      : '<span>' + esc(sourceName) + '</span>';
+    var urlLine = host ? '<span class="source-domain">' + esc(host) + '</span>' : "";
+    var topicLine = [
+      metaPill("Tickers", item.tickers),
+      metaPill("Topics", item.topics),
+      score ? metaPill("Score", score) : "",
+    ].filter(Boolean).join("");
+
+    return '<article class="source-card">' +
+      '<div class="source-index">' + String(idx + 1).padStart(2, "0") + '</div>' +
+      '<div class="source-content">' +
+        '<div class="source-topline">' +
+          '<div class="source-origin">' + sourceLine + urlLine + '</div>' +
+          '<div class="source-badges">' +
+            (item.risk_level ? badge(item.risk_level, riskBadgeType(item.risk_level)) : "") +
+            (published ? '<span class="badge neutral">' + esc(published) + '</span>' : "") +
+          '</div>' +
+        '</div>' +
+        '<h3 class="source-title">' + titleHtml + '</h3>' +
+        (item.summary ? '<div class="source-block"><div class="source-block-label">摘要</div><p>' + esc(cleanSourceText(item.summary)) + '</p></div>' : '') +
+        (item.impact_analysis ? '<div class="source-block"><div class="source-block-label">影响分析</div><p>' + esc(cleanSourceText(item.impact_analysis)) + '</p></div>' : '') +
+        (topicLine ? '<div class="source-meta">' + topicLine + '</div>' : '') +
+      '</div>' +
+    '</article>';
+  }
 
   function pageHead(title, rightHtml, backHref) {
     var back = backHref ? '<a class="page-back" href="' + backHref + '">&larr;</a>' : '';
@@ -221,18 +370,19 @@ var App = (function () {
   /* ── Watchlists List ── */
   window.watchlists = async function () {
     showError("");
-    $container.innerHTML = pageHead("Watchlists", '<button class="btn primary" onclick="App.createWatchlist()">+ Create</button>') + '<div class="page-body"><div class="spinner"></div></div>';
+    $container.innerHTML = pageHead("Watchlists", '<button class="btn primary" onclick="App.createWatchlist(this)">新建关注列表</button>') + '<div class="page-body"><div class="spinner"></div></div>';
     try {
       var wls = await API.watchlists.list();
       var rows = wls.map(function (w) {
-        return '<tr><td><a href="#watchlist-detail/' + w.id + '">' + esc(w.name) + '</a></td><td style="color:var(--text-dim)">' + esc(w.created_at || "") + '</td><td><button class="btn secondary sm" onclick="App.createJob(' + w.id + ')">Run Job</button></td></tr>';
+        return '<tr><td><a href="#watchlist-detail/' + w.id + '">' + esc(w.name) + '</a></td><td style="color:var(--text-dim)">' + esc(fmtTime(w.created_at)) + '</td><td><button class="btn secondary sm" onclick="App.createJob(' + w.id + ', this)">生成今日报告</button></td></tr>';
       }).join("");
 
       var body = document.querySelector(".page-body");
       body.innerHTML = [
         '<div class="card"><div class="card-pad">',
         '<div class="form-grid" style="margin-bottom:18px">',
-        '<div class="form-row"><input id="wlName" type="text" placeholder="Watchlist name" style="flex:1" /><button class="btn primary" onclick="App.createWatchlist()">Create</button></div>',
+        '<div class="form-row"><input id="wlName" type="text" placeholder="Watchlist name" style="flex:1" onkeydown="if(event.key===\'Enter\') App.createWatchlist()" /><button class="btn primary" onclick="App.createWatchlist(this)">创建关注列表</button></div>',
+        '<div class="form-hint">创建后会直接进入详情页，继续添加关注项。</div>',
         '</div>',
         wls.length
           ? '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Created</th><th style="width:100px"></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
@@ -242,20 +392,69 @@ var App = (function () {
     } catch (e) { showError("Failed to load: " + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
   };
 
-  window.createWatchlist = async function () {
+  window.createWatchlist = async function (btn) {
     showError("");
     var name = $("wlName").value.trim();
     if (!name) return showError("Name is required");
-    try { await API.watchlists.create(name); showToast("Watchlist created"); window.watchlists(); } catch (e) { showError(e.message); }
+    var restore = setBusyButton(btn, "创建中...");
+    try {
+      var wl = await API.watchlists.create(name);
+      showToast("关注列表已创建");
+      if (wl && wl.id) location.hash = "#watchlist-detail/" + wl.id;
+      else window.watchlists();
+    } catch (e) {
+      showError(e.message);
+    } finally {
+      restore();
+    }
   };
 
-  window.createJob = async function (wlId) {
+  window.createJob = async function (wlId, btn) {
     showError("");
+    var createdJobId = null;
+    var restore = setBusyButton(btn, "生成中...");
     try {
+      var items = _currentWlId === Number(wlId) && Array.isArray(_currentItems)
+        ? _currentItems
+        : await API.watchlists.items(wlId);
+      if (!items || !items.length) {
+        showError("请先添加至少一个关注项，再生成今日报告");
+        enqueue(function () { location.hash = "#watchlist-detail/" + wlId; });
+        return;
+      }
+
+      showToast("正在生成今日报告...");
       var job = await API.watchlists.createJob(wlId);
-      showToast("Job #" + (job.id || "?") + " created (" + (job.status || "pending") + "). Go to Jobs to run it.");
-      enqueue(function () { location.hash = "#jobs"; });
-    } catch (e) { showError(e.message); }
+      if (!job.id) throw new Error("报告任务创建成功，但未返回任务 ID");
+      createdJobId = job.id;
+
+      job = await API.jobs.run(job.id);
+      var st = job.status || "";
+      if (st === "succeeded" && job.report_id) {
+        showToast("今日报告已生成");
+        enqueue(function () { location.hash = "#report-detail/" + job.report_id; });
+      } else if (st === "failed" || st === "dead") {
+        showError("报告生成失败，请检查新闻源或稍后重试" + (job.error_message ? "：" + job.error_message : ""));
+      } else if (job.id) {
+        showToast("报告正在生成，可稍后查看");
+        enqueue(function () { location.hash = "#jobs"; });
+      } else {
+        showToast("报告任务状态：" + (st || "unknown"));
+      }
+    } catch (e) {
+      if (createdJobId) {
+        try {
+          var latest = await API.jobs.get(createdJobId);
+          if (latest && latest.error_message) {
+            showError("报告生成失败，请检查新闻源或稍后重试：" + latest.error_message);
+            return;
+          }
+        } catch (_) {}
+      }
+      showError("报告生成失败，请检查新闻源或稍后重试" + (e.message ? "：" + e.message : ""));
+    } finally {
+      restore();
+    }
   };
 
   /* ── Watchlist Detail ── */
@@ -301,7 +500,7 @@ var App = (function () {
       catch (e) { showToast("Failed: " + (item.display_name || item.keyword) + " - " + e.message); failed++; }
     }
     _pendingAdds = [];
-    showToast("Added " + success + " item(s)" + (failed ? ", " + failed + " failed" : ""));
+    showToast(success ? "已添加 " + success + " 个关注项，可以生成今日报告" + (failed ? "，" + failed + " 个失败" : "") : "未添加关注项");
     window.watchlistDetail();
   };
 
@@ -309,7 +508,7 @@ var App = (function () {
     showError("");
     var parts = (location.hash || "#").replace("#watchlist-detail/", "").split("/");
     _currentWlId = Number(parts[0]);
-    $container.innerHTML = pageHead("Watchlist Detail", '<button class="btn primary" onclick="App.createJob(' + _currentWlId + ')">Run Report Job</button>', "#watchlists") + '<div class="page-body"><div class="spinner"></div></div>';
+    $container.innerHTML = pageHead("Watchlist Detail", '<button class="btn primary" onclick="App.createJob(' + _currentWlId + ', this)">生成今日报告</button>', "#watchlists") + '<div class="page-body"><div class="spinner"></div></div>';
     try {
       _currentItems = await API.watchlists.items(_currentWlId);
 
@@ -458,7 +657,7 @@ var App = (function () {
   /* ── Jobs ── */
   window.jobs = async function () {
     showError("");
-    $container.innerHTML = pageHead("Jobs", '') + '<div class="page-body"><div class="spinner"></div></div>';
+    $container.innerHTML = pageHead("任务状态", '') + '<div class="page-body"><div class="spinner"></div></div>';
     try {
       var jobs = await API.jobs.list();
       var rows = jobs.map(function (j) {
@@ -471,19 +670,20 @@ var App = (function () {
           '<td style="color:var(--text-dim)">' + esc(j.scheduled_for || "-") + '</td>' +
           '<td>' + (j.attempt_count || 0) + '/' + (j.max_attempts || 3) + '</td>' +
           '<td style="color:var(--red);font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(j.error_message || "") + '</td>' +
-          '<td style="color:var(--text-dim);font-size:12px">' + esc(j.created_at || "") + '</td>' +
+          '<td style="color:var(--text-dim);font-size:12px">' + esc(fmtTime(j.created_at)) + '</td>' +
           '<td>' +
             (j.status === "succeeded" && j.report_id ? '<a href="#report-detail/' + j.report_id + '" style="margin-right:8px">Report #' + j.report_id + '</a>' : "") +
-            '<button class="btn secondary sm" onclick="App.runJob(' + j.id + ')">Run</button>' +
+            '<button class="btn secondary sm" onclick="App.runJob(' + j.id + ')">手动运行</button>' +
           '</td></tr>';
       }).join("");
 
       var body = document.querySelector(".page-body");
       body.innerHTML = [
+        '<div class="notice info" style="margin-bottom:16px">这里用于查看报告生成任务状态。普通用户通常只需要在关注列表中点击生成今日报告。</div>',
         '<div class="card"><div class="card-pad">',
         jobs.length
           ? '<div class="table-wrap"><table><thead><tr><th>ID</th><th>Status</th><th>Type</th><th>Scheduled</th><th>Attempts</th><th>Error</th><th>Created</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-          : '<div class="empty-state"><div class="empty-state-icon">⚡</div><p>No jobs yet</p><p style="color:var(--text-muted);font-size:12px">Create a watchlist, add items, then start a report job.</p><a class="btn secondary sm" style="margin-top:4px" href="#watchlists">Go to Watchlists</a></div>',
+          : '<div class="empty-state"><div class="empty-state-icon">⚡</div><p>No jobs yet</p><p style="color:var(--text-muted);font-size:12px">Create a watchlist, add items, then click 生成今日报告.</p><a class="btn secondary sm" style="margin-top:4px" href="#watchlists">Go to Watchlists</a></div>',
         '</div></div>',
       ].join("");
     } catch (e) { showError("Failed to load: " + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
@@ -515,7 +715,7 @@ var App = (function () {
       var reports = await API.reports.today();
       var rows = reports.map(function (r) {
         var cs = r.compliance_status || "safe";
-        return '<tr><td><a href="#report-detail/' + r.id + '">' + esc(r.title || r.query) + '</a></td><td style="color:var(--text-dim)">#' + r.watchlist_id + '</td><td>' + esc(r.risk_level || "?") + '</td><td>' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</td><td style="color:var(--text-dim);font-size:12px">' + esc(r.created_at || "") + '</td><td><a class="btn secondary sm" href="#report-detail/' + r.id + '">View</a></td></tr>';
+        return '<tr><td><a href="#report-detail/' + r.id + '">' + esc(r.title || r.query) + '</a></td><td style="color:var(--text-dim)">#' + r.watchlist_id + '</td><td>' + esc(r.risk_level || "?") + '</td><td>' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</td><td style="color:var(--text-dim);font-size:12px">' + esc(fmtTime(r.created_at)) + '</td><td><a class="btn secondary sm" href="#report-detail/' + r.id + '">View</a></td></tr>';
       }).join("");
 
       var body = document.querySelector(".page-body");
@@ -523,7 +723,7 @@ var App = (function () {
         '<div class="card"><div class="card-pad">',
         reports.length
           ? '<div class="table-wrap"><table><thead><tr><th>Title</th><th>Watchlist</th><th>Risk</th><th>Compliance</th><th>Created</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-          : '<div class="empty-state"><div class="empty-state-icon">📅</div><p>No reports today</p><p style="color:var(--text-muted);font-size:12px">Create a watchlist and run a job to generate reports.</p><a class="btn secondary sm" style="margin-top:4px" href="#watchlists">Get started</a></div>',
+          : '<div class="empty-state"><div class="empty-state-icon">📅</div><p>No reports today</p><p style="color:var(--text-muted);font-size:12px">Create a watchlist, add items, then click 生成今日报告.</p><a class="btn secondary sm" style="margin-top:4px" href="#watchlists">Get started</a></div>',
         '</div></div>',
       ].join("");
     } catch (e) { showError("Failed to load: " + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
@@ -560,7 +760,7 @@ var App = (function () {
   function _renderReports(reports) {
     var rows = reports.map(function (r) {
       var cs = r.compliance_status || "safe";
-      return '<tr><td><a href="#report-detail/' + r.id + '">' + esc(r.title || r.query) + '</a></td><td>' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</td><td>' + esc(r.risk_level || "?") + '</td><td style="color:var(--text-dim);font-size:12px">' + esc(r.created_at || "") + '</td></tr>';
+      return '<tr><td><a href="#report-detail/' + r.id + '">' + esc(r.title || r.query) + '</a></td><td>' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</td><td>' + esc(r.risk_level || "?") + '</td><td style="color:var(--text-dim);font-size:12px">' + esc(fmtTime(r.created_at)) + '</td></tr>';
     }).join("");
 
     var body = document.querySelector(".page-body");
@@ -596,6 +796,25 @@ var App = (function () {
       var cs = rp.compliance_status || "safe";
       var disclaimer = report.disclaimer || rp.disclaimer || "";
       var items = await API.reports.items(reportId) || [];
+      var reportText = rp.report || rp.summary || "No report available.";
+      var generatedAt = rp.generated_at || rp.created_at;
+      var dash = function (v) {
+        return v === undefined || v === null || v === ""
+          ? "-"
+          : String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      };
+      var chainRisk = rp.risk_level || rp.overall_risk_level;
+      var chainHtml = [
+        ["candidate_news_count", rp.candidate_news_count],
+        ["filtered_news_count", rp.filtered_news_count],
+        ["analyzed_news_count", rp.analyzed_news_count],
+        ["risk_level / overall_risk_level", chainRisk],
+        ["compliance_status", rp.compliance_status],
+        ["generated_at", fmtTime(generatedAt)],
+        ["source item 数量", items.length],
+      ].map(function (row) {
+        return '<div class="chain-summary-item"><span>' + esc(row[0]) + '</span><strong>' + dash(row[1]) + '</strong></div>';
+      }).join("");
 
       var body = document.querySelector(".page-body");
       body.innerHTML = [
@@ -607,27 +826,18 @@ var App = (function () {
         '<div class="report-meta">',
         '<span><strong>Risk Level:</strong> ' + esc(rp.risk_level || "?") + '</span>',
         '<span><strong>Compliance:</strong> ' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</span>',
+        '<span><strong>Generated:</strong> ' + esc(fmtTime(generatedAt) || "-") + '</span>',
         '</div>',
         disclaimer ? '<div class="notice info" style="margin-bottom:14px">' + esc(disclaimer) + '</div>' : "",
-        '<div class="report-box">' + esc(rp.summary || rp.report || "No summary available.") + '</div>',
+        '<div class="report-box">' + formatReportText(reportText) + '</div>',
         '</div></div>',
+
+        '<div class="section-title">生成链路摘要</div>',
+        '<div class="card" style="margin-bottom:16px"><div class="card-pad"><div class="chain-summary-grid">' + chainHtml + '</div></div></div>',
 
         '<div class="section-title">Sources (' + items.length + ')</div>',
         items.length
-          ? items.map(function (item) {
-              return '<div class="source-card">' +
-                '<div class="source-title">' + esc(item.title || "Untitled") + '</div>' +
-                '<div class="source-link">' +
-                  (item.source_url ? '<a href="' + esc(item.source_url) + '" target="_blank" rel="noopener">' + esc(item.source_name || "source") + '</a>' : '<span style="color:var(--text-dim)">' + esc(item.source_name || "") + '</span>') +
-                '</div>' +
-                (item.summary ? '<div class="source-summary">' + esc(item.summary) + '</div>' : '') +
-                (item.impact_analysis ? '<div class="source-summary">' + esc(item.impact_analysis) + '</div>' : '') +
-                '<div class="source-meta">' +
-                  '<span>Risk: ' + esc(item.risk_level || "?") + '</span>' +
-                  '<span>Published: ' + esc(item.published_at || "?") + '</span>' +
-                  '<span>Score: ' + esc(item.relevance_score || "?") + '</span>' +
-                '</div></div>';
-            }).join("")
+          ? '<div class="source-list">' + items.map(renderSourceCard).join("") + '</div>'
           : '<div class="empty-state" style="min-height:80px">No structured sources found for this report.</div>',
       ].join("");
     } catch (e) { showError("Failed to load: " + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }

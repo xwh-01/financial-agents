@@ -109,7 +109,7 @@ async def _execute_job(job_id: int) -> ReportJobResponse:
         report_id, _ = await generate_watchlist_report(
             user_id=job["user_id"],
             watchlist_id=job["watchlist_id"],
-            max_items=5,
+            max_items=8,
         )
         repository.mark_job_succeeded(job_id, report_id)
     except Exception as exc:

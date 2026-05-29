@@ -3,6 +3,7 @@ from market_pulse.analyzers.report_generator import (
     build_market_pulse_report,
     predict_ticker_trends,
 )
+from datetime import datetime, timezone
 from market_pulse.repository import save_market_pulse_report
 from market_pulse.state import MarketPulseGraphState
 
@@ -12,9 +13,10 @@ def generate_report_node(
 ) -> MarketPulseGraphState:
     """Assemble trends, recommendations, and the final report payload."""
     print("[langgraph-market] generate_report")
+    analyzed_news = state.get("analyzed_news", [])
     trends = predict_ticker_trends(state.get("completed_results", []))
     recommendations = build_financial_recommendations(trends)
-    report = build_market_pulse_report(trends, recommendations)
+    report = build_market_pulse_report(trends, recommendations, analyzed_news)
     risk_review_notes = state.get("risk_review_notes", [])
 
     if risk_review_notes:
@@ -28,6 +30,7 @@ def generate_report_node(
         "status": "completed",
         "query": state.get("query", ""),
         "workflow": "langgraph_market_pulse",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "total_news": len(state.get("selected_news", [])),
         "candidate_news_count": len(state.get("candidate_news", [])),
         "filtered_news_count": len(state.get("ranked_news", [])),
@@ -35,7 +38,7 @@ def generate_report_node(
         "risk_level": state.get("overall_risk_level", "low"),
         "overall_risk_level": state.get("overall_risk_level", "low"),
         "risk_review_notes": risk_review_notes,
-        "analyzed_news": [item.model_dump() for item in state.get("analyzed_news", [])],
+        "analyzed_news": [item.model_dump() for item in analyzed_news],
         "trends": [item.model_dump() for item in trends],
         "recommendations": [item.model_dump() for item in recommendations],
         "report": report,

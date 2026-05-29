@@ -11,14 +11,53 @@ MAX_NEWS_AGE_DAYS = 7
 
 TICKER_KEYWORDS = {
     "NVDA": ["nvidia", "nvda", "ai chip", "gpu"],
-    "TSLA": ["tesla", "tsla", "robotaxi"],
+    "AMD": ["amd", "advanced micro devices"],
     "AAPL": ["apple", "aapl", "iphone"],
     "MSFT": ["microsoft", "msft", "azure", "openai"],
     "GOOGL": ["google", "alphabet", "googl", "gemini"],
     "AMZN": ["amazon", "amzn", "amazon web services"],
-    "AMD": ["amd", "advanced micro devices"],
-    "AVGO": ["broadcom", "avgo"],
     "META": ["meta", "facebook", "instagram"],
+    "TSLA": ["tesla", "tsla", "robotaxi"],
+    "TSM": ["tsmc", "taiwan semiconductor", "tsm", "foundry"],
+    "AVGO": ["broadcom", "avgo"],
+    "ASML": ["asml", "lithography"],
+    "QCOM": ["qualcomm", "qcom", "snapdragon"],
+    "MU": ["micron", "dram", "nand", "memory chip"],
+    "INTC": ["intel", "intc"],
+    "ORCL": ["oracle", "orcl"],
+    "CRM": ["salesforce"],
+    "NOW": ["servicenow"],
+    "ADBE": ["adobe", "adbe"],
+    "NFLX": ["netflix", "nflx"],
+    "JPM": ["jpmorgan", "jp morgan", "jpm", "chase"],
+    "BAC": ["bank of america", "bac"],
+    "GS": ["goldman sachs", "goldman"],
+    "MS": ["morgan stanley"],
+    "V": ["visa"],
+    "MA": ["mastercard"],
+    "PYPL": ["paypal", "pypl"],
+    "COIN": ["coinbase"],
+    "XOM": ["exxon", "exxon mobil", "xom"],
+    "CVX": ["chevron", "cvx"],
+    "COP": ["conocophillips", "conoco"],
+    "SLB": ["slb", "schlumberger"],
+    "LLY": ["eli lilly", "lilly", "lly"],
+    "UNH": ["unitedhealth", "unitedhealth group", "unh"],
+    "JNJ": ["johnson & johnson", "johnson and johnson", "jnj"],
+    "PFE": ["pfizer", "pfe"],
+    "MRK": ["merck", "mrk"],
+    "WMT": ["walmart", "wmt"],
+    "COST": ["costco"],
+    "HD": ["home depot"],
+    "MCD": ["mcdonald", "mcd"],
+    "NKE": ["nike", "nke"],
+    "DIS": ["disney"],
+    "SBUX": ["starbucks", "sbux"],
+    "UBER": ["uber"],
+    "PLTR": ["palantir", "pltr"],
+    "SHOP": ["shopify"],
+    "BA": ["boeing"],
+    "GE": ["ge aerospace", "general electric"],
 }
 
 EVENT_KEYWORDS = {
@@ -267,6 +306,16 @@ def filter_and_rank_news(
 
     for item in items:
         score, reasons, tickers, topics, events = score_news_item(item)
+        configured_tickers = _normalize_tickers(item.matched_tickers)
+        missing_configured_tickers = [
+            ticker for ticker in configured_tickers if ticker not in tickers
+        ]
+        if missing_configured_tickers:
+            tickers = _dedupe(tickers + missing_configured_tickers)
+            score += min(8, len(missing_configured_tickers) * 4)
+            reasons.append(
+                "configured_tickers=" + ",".join(missing_configured_tickers[:5])
+            )
         text = f"{item.title} {item.content}".lower()
 
         neg_score = 0.0
@@ -365,6 +414,108 @@ def filter_and_rank_news(
 
     ranked.sort(key=lambda item: item.relevance_score, reverse=True)
     return ranked
+
+
+def select_representative_news(
+    ranked_news: list[NewsItem],
+    limit: int,
+    requested_tickers: list[str] | None = None,
+    per_ticker: int = 2,
+) -> list[NewsItem]:
+    """Select top-ranked items while preserving basic ticker coverage."""
+    safe_limit = max(0, limit)
+    if safe_limit == 0 or not ranked_news:
+        return []
+
+    selected: list[NewsItem] = []
+    selected_keys: set[str] = set()
+    tickers = _normalize_tickers(requested_tickers or [])
+
+    if not tickers:
+        tickers = _detected_tickers_by_rank(ranked_news)
+
+    for round_idx in range(max(1, per_ticker)):
+        for ticker in tickers:
+            if len(selected) >= safe_limit:
+                break
+            match = _next_ticker_match(
+                ranked_news=ranked_news,
+                ticker=ticker,
+                selected_keys=selected_keys,
+            )
+            if match is None:
+                continue
+            selected.append(match)
+            selected_keys.add(_news_key(match))
+        if len(selected) >= safe_limit:
+            break
+
+    for item in ranked_news:
+        if len(selected) >= safe_limit:
+            break
+        key = _news_key(item)
+        if key in selected_keys:
+            continue
+        selected.append(item)
+        selected_keys.add(key)
+
+    selected.sort(key=lambda item: item.relevance_score, reverse=True)
+    return selected
+
+
+def _normalize_tickers(tickers: list[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for ticker in tickers:
+        text = str(ticker or "").strip().upper()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
+def _dedupe(items: list[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        text = str(item or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
+def _detected_tickers_by_rank(ranked_news: list[NewsItem]) -> list[str]:
+    tickers: list[str] = []
+    seen: set[str] = set()
+    for item in ranked_news:
+        for ticker in _normalize_tickers(item.matched_tickers):
+            if ticker in seen:
+                continue
+            seen.add(ticker)
+            tickers.append(ticker)
+    return tickers
+
+
+def _next_ticker_match(
+    ranked_news: list[NewsItem],
+    ticker: str,
+    selected_keys: set[str],
+) -> NewsItem | None:
+    for item in ranked_news:
+        if _news_key(item) in selected_keys:
+            continue
+        if ticker in _normalize_tickers(item.matched_tickers):
+            return item
+    return None
+
+
+def _news_key(item: NewsItem) -> str:
+    if item.url:
+        return "url:" + item.url.strip().lower()
+    return "title:" + item.title.strip().lower()
 
 
 def parse_news_time(published_at: str) -> datetime | None:

@@ -27,7 +27,7 @@ class WatchlistItemCreateRequest(BaseModel):
 
 
 class WatchlistReportGenerateRequest(BaseModel):
-    max_items: int = Field(default=5, ge=1, le=20)
+    max_items: int = Field(default=8, ge=1, le=20)
 
 
 @router.get("/api/watchlists")
@@ -124,7 +124,7 @@ async def generate_watchlist_report_route(
     request: WatchlistReportGenerateRequest | None = None,
     current_user: UserResponse = Depends(get_current_user),
 ):
-    max_items = request.max_items if request else 5
+    max_items = request.max_items if request else 8
     _, result = await generate_watchlist_report(
         user_id=current_user.id,
         watchlist_id=watchlist_id,

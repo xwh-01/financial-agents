@@ -1,5 +1,6 @@
 from clients.news_client import search_news
 from clients.fin_news_rss import collect_fin_rss_news
+from clients.rss_client import collect_company_market_news
 from market_pulse.filters.news_filter import dedupe_news, filter_fresh_news
 from market_pulse.state import MarketPulseGraphState
 
@@ -26,6 +27,18 @@ async def collect_news_node(
             )
         except Exception as exc:
             print(f"[langgraph-market] query news search failed: {exc}")
+
+    # Company RSS + Google News fallback from config/company_feeds.json.
+    try:
+        company_items = await collect_company_market_news(
+            limit=150,
+            language="en",
+            translate_to_zh=False,
+        )
+        candidate_news.extend(company_items)
+        print(f"[langgraph-market] company-rss collected={len(company_items)}")
+    except Exception as exc:
+        print(f"[langgraph-market] company-rss failed: {exc}")
 
     # Multi-provider RSS aggregation (CNBC, MarketWatch, NASDAQ, Seeking Alpha, Yahoo, WSJ).
     try:

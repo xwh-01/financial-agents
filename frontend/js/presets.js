@@ -1,14 +1,52 @@
 var WATCHLIST_PRESETS = [
-  { category: "科技股", label: "英伟达", item_type: "ticker", symbol: "NVDA", keyword: "NVIDIA", display_name: "英伟达" },
-  { category: "科技股", label: "AMD", item_type: "ticker", symbol: "AMD", keyword: "AMD", display_name: "AMD" },
-  { category: "科技股", label: "苹果", item_type: "ticker", symbol: "AAPL", keyword: "Apple", display_name: "苹果" },
-  { category: "科技股", label: "微软", item_type: "ticker", symbol: "MSFT", keyword: "Microsoft", display_name: "微软" },
-  { category: "科技股", label: "特斯拉", item_type: "ticker", symbol: "TSLA", keyword: "Tesla", display_name: "特斯拉" },
-  { category: "科技股", label: "谷歌", item_type: "ticker", symbol: "GOOGL", keyword: "Alphabet", display_name: "谷歌" },
-  { category: "科技股", label: "亚马逊", item_type: "ticker", symbol: "AMZN", keyword: "Amazon", display_name: "亚马逊" },
-  { category: "科技股", label: "Meta", item_type: "ticker", symbol: "META", keyword: "Meta", display_name: "Meta" },
-  { category: "科技股", label: "台积电", item_type: "ticker", symbol: "TSM", keyword: "TSMC", display_name: "台积电" },
-  { category: "科技股", label: "博通", item_type: "ticker", symbol: "AVGO", keyword: "Broadcom", display_name: "博通" },
+  { category: "股票代码", label: "英伟达", item_type: "ticker", symbol: "NVDA", keyword: "NVIDIA", display_name: "英伟达" },
+  { category: "股票代码", label: "AMD", item_type: "ticker", symbol: "AMD", keyword: "AMD", display_name: "AMD" },
+  { category: "股票代码", label: "苹果", item_type: "ticker", symbol: "AAPL", keyword: "Apple", display_name: "苹果" },
+  { category: "股票代码", label: "微软", item_type: "ticker", symbol: "MSFT", keyword: "Microsoft", display_name: "微软" },
+  { category: "股票代码", label: "特斯拉", item_type: "ticker", symbol: "TSLA", keyword: "Tesla", display_name: "特斯拉" },
+  { category: "股票代码", label: "谷歌", item_type: "ticker", symbol: "GOOGL", keyword: "Alphabet", display_name: "谷歌" },
+  { category: "股票代码", label: "亚马逊", item_type: "ticker", symbol: "AMZN", keyword: "Amazon", display_name: "亚马逊" },
+  { category: "股票代码", label: "Meta", item_type: "ticker", symbol: "META", keyword: "Meta", display_name: "Meta" },
+  { category: "股票代码", label: "台积电", item_type: "ticker", symbol: "TSM", keyword: "TSMC", display_name: "台积电" },
+  { category: "股票代码", label: "博通", item_type: "ticker", symbol: "AVGO", keyword: "Broadcom", display_name: "博通" },
+  { category: "股票代码", label: "阿斯麦", item_type: "ticker", symbol: "ASML", keyword: "ASML", display_name: "阿斯麦" },
+  { category: "股票代码", label: "高通", item_type: "ticker", symbol: "QCOM", keyword: "Qualcomm", display_name: "高通" },
+  { category: "股票代码", label: "美光", item_type: "ticker", symbol: "MU", keyword: "Micron", display_name: "美光" },
+  { category: "股票代码", label: "英特尔", item_type: "ticker", symbol: "INTC", keyword: "Intel", display_name: "英特尔" },
+  { category: "股票代码", label: "甲骨文", item_type: "ticker", symbol: "ORCL", keyword: "Oracle", display_name: "甲骨文" },
+  { category: "股票代码", label: "Salesforce", item_type: "ticker", symbol: "CRM", keyword: "Salesforce", display_name: "Salesforce" },
+  { category: "股票代码", label: "ServiceNow", item_type: "ticker", symbol: "NOW", keyword: "ServiceNow", display_name: "ServiceNow" },
+  { category: "股票代码", label: "Adobe", item_type: "ticker", symbol: "ADBE", keyword: "Adobe", display_name: "Adobe" },
+  { category: "股票代码", label: "Netflix", item_type: "ticker", symbol: "NFLX", keyword: "Netflix", display_name: "Netflix" },
+  { category: "股票代码", label: "摩根大通", item_type: "ticker", symbol: "JPM", keyword: "JPMorgan Chase", display_name: "摩根大通" },
+  { category: "股票代码", label: "美国银行", item_type: "ticker", symbol: "BAC", keyword: "Bank of America", display_name: "美国银行" },
+  { category: "股票代码", label: "高盛", item_type: "ticker", symbol: "GS", keyword: "Goldman Sachs", display_name: "高盛" },
+  { category: "股票代码", label: "摩根士丹利", item_type: "ticker", symbol: "MS", keyword: "Morgan Stanley", display_name: "摩根士丹利" },
+  { category: "股票代码", label: "Visa", item_type: "ticker", symbol: "V", keyword: "Visa", display_name: "Visa" },
+  { category: "股票代码", label: "万事达", item_type: "ticker", symbol: "MA", keyword: "Mastercard", display_name: "万事达" },
+  { category: "股票代码", label: "PayPal", item_type: "ticker", symbol: "PYPL", keyword: "PayPal", display_name: "PayPal" },
+  { category: "股票代码", label: "Coinbase", item_type: "ticker", symbol: "COIN", keyword: "Coinbase", display_name: "Coinbase" },
+  { category: "股票代码", label: "埃克森美孚", item_type: "ticker", symbol: "XOM", keyword: "Exxon Mobil", display_name: "埃克森美孚" },
+  { category: "股票代码", label: "雪佛龙", item_type: "ticker", symbol: "CVX", keyword: "Chevron", display_name: "雪佛龙" },
+  { category: "股票代码", label: "康菲石油", item_type: "ticker", symbol: "COP", keyword: "ConocoPhillips", display_name: "康菲石油" },
+  { category: "股票代码", label: "斯伦贝谢", item_type: "ticker", symbol: "SLB", keyword: "SLB", display_name: "斯伦贝谢" },
+  { category: "股票代码", label: "礼来", item_type: "ticker", symbol: "LLY", keyword: "Eli Lilly", display_name: "礼来" },
+  { category: "股票代码", label: "联合健康", item_type: "ticker", symbol: "UNH", keyword: "UnitedHealth", display_name: "联合健康" },
+  { category: "股票代码", label: "强生", item_type: "ticker", symbol: "JNJ", keyword: "Johnson & Johnson", display_name: "强生" },
+  { category: "股票代码", label: "辉瑞", item_type: "ticker", symbol: "PFE", keyword: "Pfizer", display_name: "辉瑞" },
+  { category: "股票代码", label: "默沙东", item_type: "ticker", symbol: "MRK", keyword: "Merck", display_name: "默沙东" },
+  { category: "股票代码", label: "沃尔玛", item_type: "ticker", symbol: "WMT", keyword: "Walmart", display_name: "沃尔玛" },
+  { category: "股票代码", label: "好市多", item_type: "ticker", symbol: "COST", keyword: "Costco", display_name: "好市多" },
+  { category: "股票代码", label: "家得宝", item_type: "ticker", symbol: "HD", keyword: "Home Depot", display_name: "家得宝" },
+  { category: "股票代码", label: "麦当劳", item_type: "ticker", symbol: "MCD", keyword: "McDonald's", display_name: "麦当劳" },
+  { category: "股票代码", label: "耐克", item_type: "ticker", symbol: "NKE", keyword: "Nike", display_name: "耐克" },
+  { category: "股票代码", label: "迪士尼", item_type: "ticker", symbol: "DIS", keyword: "Disney", display_name: "迪士尼" },
+  { category: "股票代码", label: "星巴克", item_type: "ticker", symbol: "SBUX", keyword: "Starbucks", display_name: "星巴克" },
+  { category: "股票代码", label: "Uber", item_type: "ticker", symbol: "UBER", keyword: "Uber", display_name: "Uber" },
+  { category: "股票代码", label: "Palantir", item_type: "ticker", symbol: "PLTR", keyword: "Palantir", display_name: "Palantir" },
+  { category: "股票代码", label: "Shopify", item_type: "ticker", symbol: "SHOP", keyword: "Shopify", display_name: "Shopify" },
+  { category: "股票代码", label: "波音", item_type: "ticker", symbol: "BA", keyword: "Boeing", display_name: "波音" },
+  { category: "股票代码", label: "通用电气", item_type: "ticker", symbol: "GE", keyword: "GE Aerospace", display_name: "通用电气" },
 
   { category: "AI 与半导体", label: "AI 芯片", item_type: "topic", symbol: "", keyword: "AI chips", display_name: "AI 芯片" },
   { category: "AI 与半导体", label: "GPU", item_type: "topic", symbol: "", keyword: "GPU", display_name: "GPU" },
@@ -100,7 +138,7 @@ var WATCHLIST_PRESETS = [
 ];
 
 var WATCHLIST_CATEGORIES = [
-  "科技股", "AI 与半导体", "宏观政策", "商品市场", "财报与业绩",
+  "股票代码", "AI 与半导体", "宏观政策", "商品市场", "财报与业绩",
   "公司事件", "监管与风险", "市场情绪", "行业主题", "自定义关注"
 ];
 
@@ -108,26 +146,36 @@ var WATCHLIST_BUNDLES = [
   {
     name: "科技股日报",
     desc: "核心科技公司 + AI/半导体 + 财报",
-    keys: ["NVDA", "AMD", "AAPL", "MSFT", "AI chips", "semiconductor", "earnings"]
+    keys: ["NVDA", "AMD", "AAPL", "MSFT", "GOOGL", "AMZN", "AI chips", "semiconductor", "earnings"]
   },
   {
     name: "AI 半导体追踪",
-    desc: "芯片设计、制造、先进封装全覆盖",
-    keys: ["NVIDIA", "AMD", "TSMC", "AI chips", "GPU", "data center", "HBM memory", "export controls"]
+    desc: "芯片设计、制造、设备、内存与先进封装",
+    keys: ["NVDA", "AMD", "TSM", "ASML", "AVGO", "QCOM", "MU", "AI chips", "GPU", "HBM memory"]
+  },
+  {
+    name: "金融与支付",
+    desc: "大行、投行、支付网络与金融科技",
+    keys: ["JPM", "BAC", "GS", "MS", "V", "MA", "PYPL", "COIN", "fintech"]
+  },
+  {
+    name: "能源与通胀",
+    desc: "能源股、原油价格、库存与通胀变量",
+    keys: ["XOM", "CVX", "COP", "SLB", "oil prices", "WTI crude", "OPEC", "inflation"]
+  },
+  {
+    name: "医疗健康",
+    desc: "大型药企、医保、药品审批与政策风险",
+    keys: ["LLY", "UNH", "JNJ", "PFE", "MRK", "healthcare technology", "regulatory investigation"]
   },
   {
     name: "宏观与黄金",
-    desc: "利率、通胀、就业 + 避险资产",
+    desc: "利率、通胀、就业、美元与避险资产",
     keys: ["Fed interest rate", "FOMC", "inflation", "CPI", "treasury yields", "US dollar index", "gold"]
   },
   {
-    name: "原油与通胀",
-    desc: "原油供应、OPEC、美元指数",
-    keys: ["oil prices", "Brent crude", "WTI crude", "OPEC", "oil inventories", "inflation", "US dollar index"]
-  },
-  {
     name: "科技公司风险追踪",
-    desc: "反垄断、出口管制、诉讼、网安",
+    desc: "反垄断、出口管制、诉讼、网络安全与地缘政治",
     keys: ["antitrust", "export controls", "regulatory investigation", "lawsuit", "cybersecurity incident", "geopolitical risk"]
   }
 ];

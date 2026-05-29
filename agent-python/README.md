@@ -6,7 +6,7 @@ FastAPI + LangGraph + SQLite 后端。
 
 | 入口 | 接口 |
 |------|------|
-| **Watchlist → Job → Report** | `POST /api/watchlists/{id}/report-jobs` → `POST /api/report-jobs/{id}/run` → `GET /api/reports` |
+| **Watchlist → 生成今日报告 → Report** | 用户点击生成今日报告；底层由 report job 创建并执行，仍由 `POST /api/watchlists/{id}/report-jobs` → `POST /api/report-jobs/{id}/run` → `GET /api/reports` 实现 |
 
 其他接口（auth/watchlists/reports/today/jobs）均为本链路的辅助 API。
 

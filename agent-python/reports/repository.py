@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from typing import Any
 
 from storage.report_store import _connect, init_db
@@ -18,6 +19,7 @@ def save_report(
 ) -> int:
     init_db()
     payload = json.dumps(report_json, ensure_ascii=False)
+    created_at = datetime.now(timezone.utc).isoformat()
 
     with _connect() as conn:
         cursor = conn.execute(
@@ -35,7 +37,7 @@ def save_report(
                 disclaimer,
                 created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
@@ -48,6 +50,7 @@ def save_report(
                 payload,
                 compliance_status or "safe",
                 disclaimer or "",
+                created_at,
             ),
         )
         conn.commit()
@@ -122,7 +125,7 @@ def list_reports(
         params.append(f"%{ticker.strip().upper()}%")
 
     if date_str is not None and date_str.strip():
-        filters.append("date(r.created_at) = ?")
+        filters.append("date(r.created_at, 'localtime') = ?")
         params.append(date_str.strip())
 
     where_clause = " AND ".join(filters)
@@ -151,7 +154,10 @@ def list_reports_today(
 ) -> list[dict[str, Any]]:
     init_db()
     params: list[Any] = [user_id]
-    filters = ["r.user_id = ?", "date(r.created_at) = date('now', 'localtime')"]
+    filters = [
+        "r.user_id = ?",
+        "date(r.created_at, 'localtime') = date('now', 'localtime')",
+    ]
 
     if watchlist_id is not None:
         filters.append("r.watchlist_id = ?")
