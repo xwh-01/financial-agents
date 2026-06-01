@@ -1,13 +1,14 @@
-import os
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
 
+from app.config import settings
 
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-only-change-me")
+
+DEV_JWT_SECRET = "dev-only-change-me"
 JWT_ALGORITHM = "HS256"
-TOKEN_EXPIRE_DAYS = 7
+DEV_ENVIRONMENTS = {"dev", "development", "local", "test", "testing"}
 
 
 class TokenError(Exception):
@@ -30,15 +31,25 @@ def create_access_token(user_id: int) -> str:
     payload = {
         "user_id": user_id,
         "iat": now,
-        "exp": now + timedelta(days=TOKEN_EXPIRE_DAYS),
+        "exp": now + timedelta(days=settings.token_expire_days),
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return jwt.encode(payload, _jwt_secret(), algorithm=JWT_ALGORITHM)
 
 
 def decode_access_token(token: str) -> dict:
     try:
-        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
     except jwt.ExpiredSignatureError as exc:
         raise TokenError("Access token has expired") from exc
     except jwt.InvalidTokenError as exc:
         raise TokenError("Invalid access token") from exc
+
+
+def validate_security_settings() -> None:
+    env = settings.environment.strip().lower()
+    if env not in DEV_ENVIRONMENTS and _jwt_secret() == DEV_JWT_SECRET:
+        raise RuntimeError("JWT_SECRET must be configured outside development.")
+
+
+def _jwt_secret() -> str:
+    return settings.jwt_secret.strip() or DEV_JWT_SECRET

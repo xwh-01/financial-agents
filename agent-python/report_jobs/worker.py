@@ -1,9 +1,8 @@
 import asyncio
 import logging
-import os
 import signal
-import sys
 
+from app.config import settings
 from report_jobs import repository
 from report_jobs.service import run_job
 
@@ -13,8 +12,18 @@ DEFAULT_SCAN_INTERVAL = 5
 DEFAULT_BATCH_LIMIT = 3
 
 
-async def run_pending_jobs_once(limit: int = DEFAULT_BATCH_LIMIT) -> int:
-    jobs = repository.find_pending_jobs(limit=limit)
+async def run_pending_jobs_once(
+    limit: int = DEFAULT_BATCH_LIMIT,
+    user_id: int | None = None,
+) -> int:
+    stale_count = repository.requeue_stale_running_jobs(
+        stale_seconds=settings.report_job_stale_seconds,
+        user_id=user_id,
+    )
+    if stale_count:
+        logger.info("requeued %s stale report job(s)", stale_count)
+
+    jobs = repository.find_pending_jobs(limit=limit, user_id=user_id)
     completed = 0
 
     for job in jobs:
@@ -32,12 +41,7 @@ async def run_pending_jobs_once(limit: int = DEFAULT_BATCH_LIMIT) -> int:
 
 
 async def run_worker_loop() -> None:
-    interval = int(
-        os.environ.get(
-            "REPORT_JOB_SCAN_INTERVAL_SECONDS",
-            str(DEFAULT_SCAN_INTERVAL),
-        ),
-    )
+    interval = settings.report_job_scan_interval_seconds or DEFAULT_SCAN_INTERVAL
     logger.info("report job worker started (scan interval=%ss)", interval)
 
     stop_event = asyncio.Event()

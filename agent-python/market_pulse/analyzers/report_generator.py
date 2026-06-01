@@ -41,6 +41,17 @@ RISK_PENALTY = {
     "high": 0.3,
 }
 
+EVENT_IMPORTANCE = {
+    "earnings": 1.35,
+    "macro_policy": 1.25,
+    "regulation_risk": 1.25,
+    "partnership": 1.15,
+    "industry_demand": 1.1,
+    "controversy": 1.1,
+    "product_plan": 0.95,
+    "unknown": 0.75,
+}
+
 
 async def generate_report(
     entity_result: EntityResult,
@@ -71,7 +82,7 @@ async def generate_report(
     )
 
 
-def build_report_user_prompt(
+def _legacy_build_report_user_prompt(
     entity_result: dict,
     event_result: dict,
     ticker_links: dict,
@@ -161,7 +172,7 @@ def build_daily_trend_report(trends: list[TickerTrend]) -> str:
     return "\n".join(lines)
 
 
-def build_financial_recommendations(
+def _legacy_build_financial_recommendations(
     trends: list[TickerTrend],
 ) -> list[FinancialRecommendation]:
     recommendations: list[FinancialRecommendation] = []
@@ -187,6 +198,9 @@ def build_financial_recommendations(
                 recommendation_type=recommendation_type,
                 direction=trend.direction,
                 confidence=trend.confidence,
+                event_importance=trend.event_importance,
+                market_confirmation=trend.market_confirmation,
+                confirmation_score=trend.confirmation_score,
                 risk_level=trend.risk_level,
                 time_window=time_window,
                 rationale=rationale,
@@ -198,7 +212,7 @@ def build_financial_recommendations(
     return recommendations
 
 
-def build_market_pulse_report(
+def _legacy_build_market_pulse_report(
     trends: list[TickerTrend],
     recommendations: list[FinancialRecommendation],
     analyzed_news: list[DailyNewsAnalysis] | None = None,
@@ -473,6 +487,9 @@ def _build_ticker_trend(ticker: str, results: list[WorkflowResult]) -> TickerTre
     weighted_scores: list[float] = []
     confidence_values: list[float] = []
     impact_values: list[float] = []
+    event_importance_values: list[float] = []
+    confirmation_values: list[float] = []
+    confirmation_labels: list[str] = []
     risk_flags: list[str] = []
     reasons: list[str] = []
     source_titles: list[str] = []
@@ -491,16 +508,27 @@ def _build_ticker_trend(ticker: str, results: list[WorkflowResult]) -> TickerTre
         confidence = _clamp((event.confidence + links.confidence) / 2)
         risk_level = risk.risk_level if risk else "low"
         penalty = RISK_PENALTY.get(risk_level, 0.0)
+        event_importance = EVENT_IMPORTANCE.get(event.event_type, 0.8)
+        confirmation_score, confirmation_label = _market_confirmation(
+            ticker=ticker,
+            result=result,
+            sentiment=event.sentiment,
+        )
 
-        score = sentiment * impact * confidence
+        score = sentiment * impact * confidence * event_importance
         if score > 0:
             score = max(0.0, score - penalty)
         elif score < 0:
             score = min(0.0, score + penalty)
+        score += confirmation_score
 
         weighted_scores.append(score)
-        confidence_values.append(confidence)
-        impact_values.append(impact)
+        confidence_values.append(_clamp(confidence + max(0.0, confirmation_score) * 0.6))
+        impact_values.append(_clamp(impact * event_importance))
+        event_importance_values.append(event_importance)
+        confirmation_values.append(confirmation_score)
+        if confirmation_label:
+            confirmation_labels.append(confirmation_label)
 
         if event.summary:
             reasons.append(event.summary)
@@ -520,12 +548,25 @@ def _build_ticker_trend(ticker: str, results: list[WorkflowResult]) -> TickerTre
         sum(confidence_values) / len(confidence_values) if confidence_values else 0.0
     )
     average_impact = sum(impact_values) / len(impact_values) if impact_values else 0.0
+    average_event_importance = (
+        sum(event_importance_values) / len(event_importance_values)
+        if event_importance_values
+        else 1.0
+    )
+    average_confirmation = (
+        sum(confirmation_values) / len(confirmation_values)
+        if confirmation_values
+        else 0.0
+    )
 
     return TickerTrend(
         ticker=ticker,
         direction=_direction_from_score(average_score),
         confidence=round(_clamp(average_confidence), 2),
         impact_score=round(_clamp(average_impact), 2),
+        event_importance=round(_clamp(average_event_importance, 0.0, 1.5), 2),
+        market_confirmation=_summarize_confirmation(confirmation_labels),
+        confirmation_score=round(average_confirmation, 2),
         risk_level=max_risk_level,
         news_count=len(results),
         reasons=_dedupe(reasons)[:5],
@@ -540,6 +581,54 @@ def _direction_from_score(score: float) -> str:
     if score <= -0.18:
         return "偏负面"
     return "中性/观望"
+
+
+def _market_confirmation(
+    ticker: str,
+    result: WorkflowResult,
+    sentiment: str,
+) -> tuple[float, str]:
+    metrics = result.market_metrics.metrics if result.market_metrics else {}
+    metric = metrics.get(ticker)
+    if metric is None:
+        return 0.0, ""
+
+    score = 0.0
+    labels: list[str] = []
+
+    ret_1d = metric.return_1d
+    rel_3d = metric.relative_to_spy_3d
+    volume_change = metric.volume_change
+
+    if sentiment == "positive":
+        if ret_1d is not None and ret_1d > 0.01:
+            score += 0.06
+            labels.append("1日上涨确认")
+        if rel_3d is not None and rel_3d > 0.01:
+            score += 0.06
+            labels.append("3日跑赢SPY")
+    elif sentiment == "negative":
+        if ret_1d is not None and ret_1d < -0.01:
+            score += 0.06
+            labels.append("1日下跌确认")
+        if rel_3d is not None and rel_3d < -0.01:
+            score += 0.06
+            labels.append("3日弱于SPY")
+
+    if volume_change is not None and volume_change > 0.2:
+        score += 0.04
+        labels.append("成交量放大")
+
+    if not labels and any(v is not None for v in (ret_1d, rel_3d, volume_change)):
+        return 0.0, "市场反应未明显确认"
+    return min(score, 0.15), "、".join(labels)
+
+
+def _summarize_confirmation(labels: list[str]) -> str:
+    selected = _dedupe([label for label in labels if label])
+    if selected:
+        return "；".join(selected[:3])
+    return "未见明显市场确认或未配置行情数据"
 
 
 def _build_recommendation_rationale(trend: TickerTrend) -> str:
@@ -561,8 +650,8 @@ def _extract_report_title(report: str) -> str:
     return first_line[:120]
 
 
-def _clamp(value: float) -> float:
-    return max(0.0, min(1.0, value))
+def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
+    return max(low, min(high, value))
 
 
 def _dedupe(items: list[str]) -> list[str]:
@@ -755,11 +844,14 @@ def _direction_from_score(score: float) -> str:
 
 
 def _build_recommendation_rationale(trend: TickerTrend) -> str:
+    confirmation = ""
+    if trend.confirmation_score > 0:
+        confirmation = f" 市场确认：{trend.market_confirmation}。"
     if trend.reasons:
-        return trend.reasons[0]
+        return trend.reasons[0] + confirmation
     return (
         f"{trend.ticker} 在最新新闻流中出现 {trend.news_count} 条相关信号，"
-        f"综合判断为{trend.direction}。"
+        f"综合判断为{trend.direction}。" + confirmation
     )
 
 

@@ -2,6 +2,7 @@ import asyncio
 
 from clients.news_client import search_news
 from clients.fin_news_rss import collect_fin_rss_news
+from market_pulse.filters.news_filter import dedupe_news, filter_fresh_news
 from market_pulse.analyzers.report_generator import (
     build_daily_trend_report,
     build_financial_recommendations,
@@ -10,6 +11,8 @@ from market_pulse.analyzers.report_generator import (
 )
 from market_pulse.graph import run_langgraph_market_pulse as _run_langgraph_market_pulse
 from market_pulse.rankers.news_ranker import filter_and_rank_news
+from market_pulse.rankers.news_ranker import freshness_score, parse_news_time
+from market_pulse.rankers.source_weight import get_source_weight
 from market_pulse.repository import get_report as _get_report
 from market_pulse.repository import list_reports as _list_reports
 from market_pulse.schemas import (
@@ -299,6 +302,158 @@ async def run_market_pulse(request: MarketPulseRequest) -> MarketPulseResponse:
         report=report,
         error_message=None,
     )
+
+
+async def run_fresh_opportunity_scan(
+    limit: int = 180,
+    max_items: int = 10,
+) -> MarketPulseResponse:
+    print("[opportunity-scan] start")
+    candidate_news = await collect_fin_rss_news(limit=limit)
+    deduped_news = dedupe_news(candidate_news)
+    fresh_news = filter_fresh_news(deduped_news, max_age_hours=72)
+    sorted_news = sorted(fresh_news, key=_fresh_opportunity_key, reverse=True)
+
+    analysis_limit = max(3, min(max_items, 10))
+    news_items = sorted_news[:analysis_limit]
+
+    print(
+        "[opportunity-scan] counts:",
+        {
+            "candidate": len(candidate_news),
+            "deduped": len(deduped_news),
+            "fresh": len(fresh_news),
+            "selected": len(news_items),
+        },
+    )
+
+    if not news_items:
+        return MarketPulseResponse(
+            status="completed",
+            total_news=0,
+            candidate_news_count=len(candidate_news),
+            filtered_news_count=0,
+            analyzed_news_count=0,
+            analyzed_news=[],
+            trends=[],
+            recommendations=[],
+            report=(
+                "本次机会扫描没有获取到足够新的金融新闻。"
+                "可以稍后重试，或检查 RSS/新闻源连接。本文仅为研究参考，不构成投资建议。"
+            ),
+            error_message=None,
+        )
+
+    analyzed_news: list[DailyNewsAnalysis] = []
+    completed_results = []
+
+    for idx, item in enumerate(news_items, start=1):
+        item.relevance_score = _fresh_opportunity_key(item)[0]
+        item.relevance_reasons = [
+            "freshness_first",
+            f"freshness_score={freshness_score(item):.2f}",
+            f"source_weight={get_source_weight(item.source, item.url):.2f}",
+        ]
+
+        try:
+            analyze_request = AnalyzeRequest(
+                title=item.title,
+                content=item.content,
+                source=item.source or "news",
+                published_at=item.published_at,
+            )
+            analysis_result = await asyncio.wait_for(
+                run_single_news_analysis(analyze_request),
+                timeout=90,
+            )
+
+            _attach_analysis_tickers(item, analysis_result)
+            analyzed_news.append(
+                DailyNewsAnalysis(
+                    news=item,
+                    analysis_result=analysis_result,
+                    status=analysis_result.status,
+                    error_message=analysis_result.error_message,
+                )
+            )
+
+            if analysis_result.error_message is None and _has_stock_link(analysis_result):
+                completed_results.append(analysis_result)
+
+        except Exception as exc:
+            error_message = (
+                "analysis timed out after 90 seconds"
+                if isinstance(exc, asyncio.TimeoutError)
+                else str(exc)
+            )
+            analyzed_news.append(
+                DailyNewsAnalysis(
+                    news=item,
+                    analysis_result=None,
+                    status="failed",
+                    error_message=error_message,
+                )
+            )
+
+    trends = predict_ticker_trends(completed_results)
+    recommendations = build_financial_recommendations(trends)
+    report = build_market_pulse_report(trends, recommendations, analyzed_news)
+
+    return MarketPulseResponse(
+        status="completed",
+        total_news=len(news_items),
+        candidate_news_count=len(candidate_news),
+        filtered_news_count=len(fresh_news),
+        analyzed_news_count=len(analyzed_news),
+        analyzed_news=analyzed_news,
+        trends=trends,
+        recommendations=recommendations,
+        report=report,
+        error_message=None,
+    )
+
+
+def _fresh_opportunity_key(item: NewsItem) -> tuple[float, float]:
+    source = get_source_weight(item.source, item.url)
+    fresh = freshness_score(item)
+    content_bonus = 0.2 if len(item.content or "") >= 80 else 0.0
+    published = parse_news_time(item.published_at)
+    timestamp = published.timestamp() if published else 0.0
+    return (fresh * 10 + source * 2 + content_bonus, timestamp)
+
+
+def _attach_analysis_tickers(item: NewsItem, result: WorkflowResult) -> None:
+    tickers: list[str] = []
+    if result.entity_result:
+        tickers.extend(result.entity_result.tickers)
+    if result.ticker_links:
+        tickers.extend(result.ticker_links.direct_tickers)
+        tickers.extend(result.ticker_links.related_tickers)
+        tickers.extend(result.ticker_links.etfs)
+    item.matched_tickers = _dedupe_upper(tickers)
+    if result.entity_result:
+        item.matched_topics = _dedupe_upper(result.entity_result.topics)
+
+
+def _has_stock_link(result: WorkflowResult) -> bool:
+    if result.ticker_links and (
+        result.ticker_links.direct_tickers
+        or result.ticker_links.related_tickers
+        or result.ticker_links.etfs
+    ):
+        return True
+    return bool(result.entity_result and result.entity_result.tickers)
+
+
+def _dedupe_upper(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        text = str(item or "").strip().upper()
+        if text and text not in seen:
+            seen.add(text)
+            result.append(text)
+    return result
 
 
 async def run_langgraph_market_pulse(

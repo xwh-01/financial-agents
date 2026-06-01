@@ -2,6 +2,9 @@ var App = (function () {
   var $container = null;
   var $sidebarNav = null;
   var $sidebarFooter = null;
+  var _progressTimer = null;
+  var _progressStartedAt = 0;
+  var _jobRefreshTimer = null;
 
   function enqueue(cb) { setTimeout(cb, 10); }
   var $ = function (id) { return document.getElementById(id); };
@@ -16,6 +19,7 @@ var App = (function () {
     "": "watchlists",
     "login": "login",
     "register": "register",
+    "opportunities": "opportunities",
     "today": "today",
     "watchlists": "watchlists",
     "watchlist-detail": "watchlistDetail",
@@ -26,6 +30,7 @@ var App = (function () {
 
   var SVG = {
     today: '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    opportunities: '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/><circle cx="7" cy="17" r="2"/><circle cx="13" cy="11" r="2"/><circle cx="19" cy="5" r="2"/></svg>',
     watchlists: '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>',
     reports: '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
     jobs: '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>',
@@ -38,13 +43,20 @@ var App = (function () {
     $container = document.getElementById("mainContent");
     $sidebarNav = document.getElementById("sidebarNav");
     $sidebarFooter = document.getElementById("sidebarFooter");
+    window.addEventListener("hashchange", navigate);
+    window.addEventListener("mkt:unauthorized", function () {
+      showToast("登录已过期，请重新登录", "warn");
+      renderNav();
+      location.hash = "#login";
+    });
     renderNav();
     navigate();
-
-    window.addEventListener("hashchange", navigate);
     var toast = cls("div", "toast", "");
     toast.id = "toast";
     document.body.appendChild(toast);
+    var progress = cls("div", "progress-overlay", "");
+    progress.id = "progressOverlay";
+    document.body.appendChild(progress);
 
     var toggleBtn = document.getElementById("sidebarToggle");
     var sidebar = document.querySelector(".sidebar");
@@ -57,13 +69,16 @@ var App = (function () {
   }
 
   function navigate() {
+    clearTimeout(_jobRefreshTimer);
     var hash = (location.hash || "#").replace("#", "");
     var parts = hash.split("/");
     var route = parts[0];
     var page = routes[route] || routes[""];
+    document.body.classList.toggle("auth-mode", page === "login" || page === "register");
     showError("");
     if (page !== "login" && page !== "register" && !API.isLoggedIn()) {
       location.hash = "#login";
+      enqueue(navigate);
       return;
     }
     renderNav();
@@ -83,23 +98,25 @@ var App = (function () {
     var route = hash.split("/")[0];
 
     $sidebarNav.innerHTML = [
-      navItem("#today", SVG.today, "Today", route === "today"),
-      navItem("#watchlists", SVG.watchlists, "Watchlists", route === "watchlists" || route === "" || route === "watchlist-detail"),
-      navItem("#reports", SVG.reports, "Reports", route === "reports" || route === "report-detail"),
+      navItem("#opportunities", SVG.opportunities, "机会扫描", route === "opportunities"),
+      navItem("#today", SVG.today, "今日报告", route === "today"),
+      navItem("#watchlists", SVG.watchlists, "关注列表", route === "watchlists" || route === "" || route === "watchlist-detail"),
+      navItem("#reports", SVG.reports, "历史报告", route === "reports" || route === "report-detail"),
       '<div class="nav-divider"></div>',
-      navItem("#jobs", SVG.jobs, "任务状态", route === "jobs"),
+      navItem("#jobs", SVG.jobs, "生成记录", route === "jobs"),
     ].join("");
 
     $sidebarFooter.innerHTML = isAuth
-      ? '<a href="#login" onclick="API.setToken(\'\');location.hash=\'#login\'">' + SVG.logout + '<span>Logout</span></a>'
+      ? '<a href="#login" onclick="API.setToken(\'\');location.hash=\'#login\'">' + SVG.logout + '<span>退出登录</span></a>'
       : [
-          '<a href="#login"' + (route === "login" ? ' class="active"' : '') + '><span style="margin-left:28px">Login</span></a>',
-          '<a href="#register"' + (route === "register" ? ' class="active"' : '') + '><span style="margin-left:28px">Register</span></a>',
+          '<a href="#login"' + (route === "login" ? ' class="active"' : '') + '><span style="margin-left:28px">登录</span></a>',
+          '<a href="#register"' + (route === "register" ? ' class="active"' : '') + '><span style="margin-left:28px">注册</span></a>',
         ].join("");
   }
 
-  function showToast(msg) {
+  function showToast(msg, type) {
     var el = document.getElementById("toast");
+    el.className = "toast" + (type ? " " + type : "");
     el.textContent = msg;
     el.style.display = "block";
     clearTimeout(showToast._t);
@@ -123,6 +140,71 @@ var App = (function () {
       btn.disabled = oldDisabled;
       btn.textContent = oldText;
     };
+  }
+
+  function loadingView() {
+    return '<div class="card"><div class="card-pad"><div class="skeleton-stack">' +
+      '<div class="skeleton-line short"></div>' +
+      '<div class="skeleton-card"></div>' +
+      '<div class="skeleton-card"></div>' +
+      '<div class="skeleton-line mid"></div>' +
+      '</div></div></div>';
+  }
+
+  function showProgress(title, detail, steps, actionHtml) {
+    var el = document.getElementById("progressOverlay");
+    if (!el) return;
+    _progressStartedAt = Date.now();
+    el.innerHTML = [
+      '<div class="progress-panel">',
+      '<div class="progress-top">',
+      '<div><div class="progress-title">' + esc(title) + '</div><div id="progressDetail" class="progress-detail">' + esc(detail || "") + '</div></div>',
+      '<div id="progressTime" class="progress-time">00:00</div>',
+      '</div>',
+      '<div id="progressSteps" class="progress-steps">' + steps.map(function (step, idx) {
+        return '<div class="progress-step" data-step="' + idx + '"><span class="progress-dot"></span><span>' + esc(step) + '</span></div>';
+      }).join("") + '</div>',
+      '<div class="progress-actions">' + (actionHtml === undefined ? '<a class="btn ghost sm" href="#jobs" onclick="App.hideProgress()">查看任务</a>' : actionHtml) + '</div>',
+      '</div>',
+    ].join("");
+    el.style.display = "flex";
+    updateProgress(0, detail || "");
+    clearInterval(_progressTimer);
+    _progressTimer = setInterval(function () {
+      var target = document.getElementById("progressTime");
+      if (!target) return;
+      var seconds = Math.floor((Date.now() - _progressStartedAt) / 1000);
+      target.textContent = String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
+    }, 1000);
+  }
+
+  function updateProgress(activeIndex, detail) {
+    var detailEl = document.getElementById("progressDetail");
+    if (detailEl && detail !== undefined) detailEl.textContent = detail;
+    var steps = document.querySelectorAll(".progress-step");
+    steps.forEach(function (step, idx) {
+      step.classList.toggle("done", idx < activeIndex);
+      step.classList.toggle("active", idx === activeIndex);
+    });
+  }
+
+  function hideProgress() {
+    var el = document.getElementById("progressOverlay");
+    if (el) el.style.display = "none";
+    clearInterval(_progressTimer);
+    _progressTimer = null;
+  }
+
+  async function pollJobUntilSettled(jobId) {
+    var delay = 1600;
+    for (var i = 0; i < 45; i++) {
+      await new Promise(function (resolve) { setTimeout(resolve, delay); });
+      var latest = await API.jobs.get(jobId);
+      var st = latest.status || "";
+      if (st === "succeeded" || st === "failed" || st === "dead") return latest;
+      delay = Math.min(3500, delay + 250);
+    }
+    return API.jobs.get(jobId);
   }
 
   function badge(text, type) {
@@ -206,11 +288,42 @@ var App = (function () {
     if (text.indexOf("low") >= 0 || text.indexOf("safe") >= 0) return "good";
     return "neutral";
   }
+  function opportunityBadgeType(item) {
+    var text = String((item && item.recommendation_type) || "").toLowerCase();
+    var risk = String((item && item.risk_level) || "").toLowerCase();
+    if (text.indexOf("风险") >= 0 || risk === "high") return "bad";
+    if (text.indexOf("谨慎") >= 0 || risk === "medium") return "warn";
+    if (text.indexOf("推荐") >= 0 || text.indexOf("关注") >= 0) return "good";
+    return "info";
+  }
+  function _jobStatusText(status) {
+    var map = {
+      pending: "等待中",
+      running: "生成中",
+      succeeded: "已完成",
+      failed: "失败",
+      dead: "已停止",
+    };
+    return map[status] || status || "-";
+  }
   function formatScore(value) {
     if (value === undefined || value === null || value === "") return "";
     var n = Number(value);
     if (isNaN(n)) return String(value);
     return n.toFixed(2);
+  }
+  function formatPct(value) {
+    if (value === undefined || value === null || value === "") return "-";
+    var n = Number(value);
+    if (isNaN(n)) return String(value);
+    return Math.round(n * 100) + "%";
+  }
+  function tickerName(symbol) {
+    var s = String(symbol || "").toUpperCase();
+    var p = (window.WATCHLIST_PRESETS || []).find(function (item) {
+      return String(item.symbol || "").toUpperCase() === s;
+    });
+    return p ? (p.display_name || p.label || s) : s;
   }
   function cleanSourceText(value) {
     var text = String(value || "")
@@ -325,12 +438,12 @@ var App = (function () {
 
   window.login = function () {
     $container.innerHTML = [
-      '<div class="auth-full"><div class="auth-card"><h2>Login</h2><p class="auth-desc">Sign in to your Financial Agents account</p>',
+      '<div class="auth-full"><div class="auth-card"><div class="auth-kicker">Financial Agents</div><h2>登录</h2><p class="auth-desc">进入后创建关注列表，选择你关心的股票、行业或宏观主题。</p>',
       '<div class="form-grid">',
-      '<div><label class="form-label">Email</label><input id="loginEmail" type="text" placeholder="name@example.com" /></div>',
-      '<div><label class="form-label">Password</label><input id="loginPassword" type="password" placeholder="Enter password" /></div>',
-      '<button class="btn primary block" style="margin-top:4px" onclick="App.doLogin()">Sign in</button>',
-      '<p class="form-hint" style="text-align:center">No account? <a href="#register">Create one</a></p>',
+      '<div><label class="form-label">邮箱</label><input id="loginEmail" type="text" placeholder="name@example.com" /></div>',
+      '<div><label class="form-label">密码</label><input id="loginPassword" type="password" placeholder="输入密码" /></div>',
+      '<button class="btn primary block" style="margin-top:4px" onclick="App.doLogin()">登录</button>',
+      '<p class="form-hint" style="text-align:center">还没有账号？<a href="#register">创建账号</a></p>',
       '</div></div></div>',
     ].join("");
   };
@@ -340,20 +453,20 @@ var App = (function () {
     try {
       var data = await API.auth.login($("loginEmail").value, $("loginPassword").value);
       API.setToken(data.access_token);
-      showToast("Signed in successfully");
+      showToast("登录成功", "good");
       renderNav();
       location.hash = "#watchlists";
-    } catch (e) { showError("Login failed: " + e.message); }
+    } catch (e) { showError("登录失败：" + e.message); }
   };
 
   window.register = function () {
     $container.innerHTML = [
-      '<div class="auth-full"><div class="auth-card"><h2>Register</h2><p class="auth-desc">Create a new Financial Agents account</p>',
+      '<div class="auth-full"><div class="auth-card"><div class="auth-kicker">Financial Agents</div><h2>创建账号</h2><p class="auth-desc">只需要邮箱和密码。进入后可以先从预设关注项开始。</p>',
       '<div class="form-grid">',
-      '<div><label class="form-label">Email</label><input id="regEmail" type="text" placeholder="name@example.com" /></div>',
-      '<div><label class="form-label">Password</label><input id="regPassword" type="password" placeholder="Create a password" /></div>',
-      '<button class="btn primary block" style="margin-top:4px" onclick="App.doRegister()">Create account</button>',
-      '<p class="form-hint" style="text-align:center">Already have an account? <a href="#login">Sign in</a></p>',
+      '<div><label class="form-label">邮箱</label><input id="regEmail" type="text" placeholder="name@example.com" /></div>',
+      '<div><label class="form-label">密码</label><input id="regPassword" type="password" placeholder="至少 8 位" /></div>',
+      '<button class="btn primary block" style="margin-top:4px" onclick="App.doRegister()">创建账号</button>',
+      '<p class="form-hint" style="text-align:center">已有账号？<a href="#login">去登录</a></p>',
       '</div></div></div>',
     ].join("");
   };
@@ -362,15 +475,15 @@ var App = (function () {
     showError("");
     try {
       await API.auth.register($("regEmail").value, $("regPassword").value);
-      showToast("Account created. Please sign in.");
+      showToast("账号已创建，请登录", "good");
       location.hash = "#login";
-    } catch (e) { showError("Registration failed: " + e.message); }
+    } catch (e) { showError("注册失败：" + e.message); }
   };
 
   /* ── Watchlists List ── */
   window.watchlists = async function () {
     showError("");
-    $container.innerHTML = pageHead("Watchlists", '<button class="btn primary" onclick="App.createWatchlist(this)">新建关注列表</button>') + '<div class="page-body"><div class="spinner"></div></div>';
+    $container.innerHTML = pageHead("关注列表", '<button class="btn primary" onclick="App.createWatchlist(this)">新建关注列表</button>') + '<div class="page-body">' + loadingView() + '</div>';
     try {
       var wls = await API.watchlists.list();
       var rows = wls.map(function (w) {
@@ -381,15 +494,15 @@ var App = (function () {
       body.innerHTML = [
         '<div class="card"><div class="card-pad">',
         '<div class="form-grid" style="margin-bottom:18px">',
-        '<div class="form-row"><input id="wlName" type="text" placeholder="Watchlist name" style="flex:1" onkeydown="if(event.key===\'Enter\') App.createWatchlist()" /><button class="btn primary" onclick="App.createWatchlist(this)">创建关注列表</button></div>',
-        '<div class="form-hint">创建后会直接进入详情页，继续添加关注项。</div>',
+        '<div class="form-row"><input id="wlName" type="text" placeholder="例如：AI 芯片观察、我的美股组合、宏观与黄金" style="flex:1" onkeydown="if(event.key===\'Enter\') App.createWatchlist()" /><button class="btn primary" onclick="App.createWatchlist(this)">创建关注列表</button></div>',
+        '<div class="form-hint">先给关注列表起个名字，再从预设里添加股票、行业或宏观主题。</div>',
         '</div>',
         wls.length
-          ? '<div class="table-wrap"><table><thead><tr><th>Name</th><th>Created</th><th style="width:100px"></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-          : '<div class="empty-state"><div class="empty-state-icon">📋</div><p>No watchlists yet</p><button class="btn primary sm" style="margin-top:4px" onclick="document.getElementById(\'wlName\').focus()">+ Create your first watchlist</button></div>',
+          ? '<div class="table-wrap"><table><thead><tr><th>名称</th><th>创建时间</th><th style="width:120px"></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+          : '<div class="empty-state"><div class="empty-state-icon">📋</div><p>还没有关注列表</p><p style="color:var(--text-muted);font-size:12px">从一个主题开始，比如“AI 芯片观察”。</p><button class="btn primary sm" style="margin-top:4px" onclick="document.getElementById(\'wlName\').focus()">创建第一个关注列表</button></div>',
         '</div></div>',
       ].join("");
-    } catch (e) { showError("Failed to load: " + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
+    } catch (e) { showError("加载失败：" + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
   };
 
   window.createWatchlist = async function (btn) {
@@ -413,44 +526,60 @@ var App = (function () {
     showError("");
     var createdJobId = null;
     var restore = setBusyButton(btn, "生成中...");
+    var steps = ["检查关注列表", "创建报告任务", "分析新闻与风险", "生成报告"];
     try {
+      showProgress("正在生成今日报告", "正在检查关注项", steps);
       var items = _currentWlId === Number(wlId) && Array.isArray(_currentItems)
         ? _currentItems
         : await API.watchlists.items(wlId);
       if (!items || !items.length) {
+        hideProgress();
         showError("请先添加至少一个关注项，再生成今日报告");
         enqueue(function () { location.hash = "#watchlist-detail/" + wlId; });
         return;
       }
 
-      showToast("正在生成今日报告...");
+      updateProgress(1, "已找到 " + items.length + " 个关注项，正在创建任务");
       var job = await API.watchlists.createJob(wlId);
       if (!job.id) throw new Error("报告任务创建成功，但未返回任务 ID");
       createdJobId = job.id;
 
+      updateProgress(2, "任务 #" + job.id + " 已创建，正在分析新闻源");
       job = await API.jobs.run(job.id);
+      if (job && job.status === "running") {
+        updateProgress(2, "任务仍在运行，正在自动刷新状态");
+        job = await pollJobUntilSettled(job.id);
+      }
       var st = job.status || "";
       if (st === "succeeded" && job.report_id) {
-        showToast("今日报告已生成");
+        updateProgress(3, "报告已生成，正在打开详情");
+        showToast("今日报告已生成", "good");
+        setTimeout(hideProgress, 500);
         enqueue(function () { location.hash = "#report-detail/" + job.report_id; });
       } else if (st === "failed" || st === "dead") {
+        hideProgress();
         showError("报告生成失败，请检查新闻源或稍后重试" + (job.error_message ? "：" + job.error_message : ""));
       } else if (job.id) {
-        showToast("报告正在生成，可稍后查看");
+        updateProgress(2, "报告仍在生成，可在任务状态页继续查看");
+        showToast("报告正在生成，可稍后查看", "warn");
+        setTimeout(hideProgress, 600);
         enqueue(function () { location.hash = "#jobs"; });
       } else {
-        showToast("报告任务状态：" + (st || "unknown"));
+        hideProgress();
+        showToast("报告任务状态：" + (st || "unknown"), "warn");
       }
     } catch (e) {
       if (createdJobId) {
         try {
           var latest = await API.jobs.get(createdJobId);
           if (latest && latest.error_message) {
+            hideProgress();
             showError("报告生成失败，请检查新闻源或稍后重试：" + latest.error_message);
             return;
           }
         } catch (_) {}
       }
+      hideProgress();
       showError("报告生成失败，请检查新闻源或稍后重试" + (e.message ? "：" + e.message : ""));
     } finally {
       restore();
@@ -474,7 +603,7 @@ var App = (function () {
         _pendingAdds.push({ item_type: p.item_type, symbol: p.symbol, keyword: p.keyword || p.label, display_name: p.display_name || p.label, name: p.display_name || p.label });
       }
     });
-    showToast("Added bundle: " + bundleName);
+    showToast("已选中组合：" + bundleName, "good");
     window.watchlistDetail();
   };
 
@@ -484,7 +613,7 @@ var App = (function () {
         _pendingAdds.push({ item_type: p.item_type, symbol: p.symbol, keyword: p.keyword || p.label, display_name: p.display_name || p.label, name: p.display_name || p.label });
       }
     });
-    showToast("Added category: " + cat);
+    showToast("已选中分类：" + cat, "good");
     window.watchlistDetail();
   };
 
@@ -492,12 +621,12 @@ var App = (function () {
 
   window.batchAddToWatchlist = async function () {
     showError("");
-    if (!_pendingAdds.length) return showToast("No items to add");
+    if (!_pendingAdds.length) return showToast("还没有选中关注项", "warn");
     var success = 0, failed = 0;
     for (var i = 0; i < _pendingAdds.length; i++) {
       var item = _pendingAdds[i];
       try { await API.watchlists.addItem(_currentWlId, item); success++; }
-      catch (e) { showToast("Failed: " + (item.display_name || item.keyword) + " - " + e.message); failed++; }
+        catch (e) { showToast("添加失败：" + (item.display_name || item.keyword) + " - " + e.message, "bad"); failed++; }
     }
     _pendingAdds = [];
     showToast(success ? "已添加 " + success + " 个关注项，可以生成今日报告" + (failed ? "，" + failed + " 个失败" : "") : "未添加关注项");
@@ -508,7 +637,7 @@ var App = (function () {
     showError("");
     var parts = (location.hash || "#").replace("#watchlist-detail/", "").split("/");
     _currentWlId = Number(parts[0]);
-    $container.innerHTML = pageHead("Watchlist Detail", '<button class="btn primary" onclick="App.createJob(' + _currentWlId + ', this)">生成今日报告</button>', "#watchlists") + '<div class="page-body"><div class="spinner"></div></div>';
+    $container.innerHTML = pageHead("关注列表详情", '<button class="btn primary" onclick="App.createJob(' + _currentWlId + ', this)">生成今日报告</button>', "#watchlists") + '<div class="page-body">' + loadingView() + '</div>';
     try {
       _currentItems = await API.watchlists.items(_currentWlId);
 
@@ -543,7 +672,7 @@ var App = (function () {
               var p = WATCHLIST_PRESETS.find(function (pp) { return pp.keyword === k || pp.label === k || pp.symbol === k || pp.display_name === k; });
               return p && !_isPresetAdded(p);
             }).length;
-            return '<div class="bundle-card" onclick="App.addBundle(\'' + esc(b.name) + '\')"><span class="bundle-icon">' + emojis[bi] + '</span><div class="bundle-title">' + esc(b.name) + '</div><div class="bundle-desc">' + esc(b.desc) + '</div><span class="bundle-count">' + count + ' items</span></div>';
+            return '<div class="bundle-card" onclick="App.addBundle(\'' + esc(b.name) + '\')"><span class="bundle-icon">' + emojis[bi] + '</span><div class="bundle-title">' + esc(b.name) + '</div><div class="bundle-desc">' + esc(b.desc) + '</div><span class="bundle-count">' + count + ' 项可添加</span></div>';
           }).join("") + '</div>'
         ) : '';
 
@@ -556,7 +685,7 @@ var App = (function () {
                 (item.symbol ? ' <span style="color:var(--text-dim)">' + esc(item.symbol) + '</span>' : '') + '</span>';
             }).join("") + '</div>';
         } else {
-          currentHtml = '<div class="empty-state" style="min-height:60px;font-size:13px">No items yet. Add from recommendations below or create custom ones.</div>';
+          currentHtml = '<div class="empty-state" style="min-height:60px;font-size:13px">还没有关注项。可以从上方推荐组合或下方分类里添加。</div>';
         }
 
         var chips;
@@ -565,7 +694,7 @@ var App = (function () {
         } else if (cat === "自定义关注") {
           chips = "";
         } else {
-          chips = '<div class="empty-state" style="min-height:60px;font-size:13px">No matching items.</div>';
+          chips = '<div class="empty-state" style="min-height:60px;font-size:13px">没有匹配的关注项，可以换个关键词试试。</div>';
         }
 
         var pendingHtml = "";
@@ -577,46 +706,46 @@ var App = (function () {
                 ' <span class="x" onclick="App.togglePreset(\'' + esc(pp.item_type) + '\',\'' + esc(pp.symbol) + '\',\'' + esc(pp.keyword) + '\',\'' + esc(pp.display_name) + '\')">&times;</span></span>';
             }).join("") +
             '</div><div style="display:flex;gap:8px;flex-shrink:0">' +
-            '<button class="btn primary sm" onclick="App.batchAddToWatchlist()">Batch Add</button>' +
-            '<button class="btn ghost sm" onclick="App.clearPending()">Clear</button>' +
+            '<button class="btn primary sm" onclick="App.batchAddToWatchlist()">添加选中项</button>' +
+            '<button class="btn ghost sm" onclick="App.clearPending()">清空</button>' +
             '</div></div>';
         }
 
         var customForm = [
           '<div class="form-grid">',
           '<div class="form-row"><select id="addType" style="flex:1">' + ["ticker","company","topic","macro","commodity","custom"].map(function(t){return '<option value="'+t+'">'+_typeLabel(t)+'</option>';}).join("") + '</select>',
-          '<input id="addSymbol" type="text" placeholder="Symbol e.g. NVDA" style="flex:1" /></div>',
-          '<input id="addKeyword" type="text" placeholder="Search keyword (required) · e.g. NVIDIA / AI chips / gold" />',
-          '<input id="addDisplay" type="text" placeholder="Display name · e.g. 英伟达 / AI 芯片 / 黄金" />',
-          '<button class="btn primary block" onclick="App.doCustomAdd()">Add Item</button>',
+          '<input id="addSymbol" type="text" placeholder="股票代码，例如 NVDA" style="flex:1" /></div>',
+          '<input id="addKeyword" type="text" placeholder="搜索关键词（必填），例如 NVIDIA / AI chips / gold" />',
+          '<input id="addDisplay" type="text" placeholder="显示名称，例如 英伟达 / AI 芯片 / 黄金" />',
+          '<button class="btn primary block" onclick="App.doCustomAdd()">添加关注项</button>',
           '</div>',
         ].join("");
 
         var body = document.querySelector(".page-body");
         body.innerHTML = [
           _currentItems.length
-            ? '<div class="summary-bar">Monitoring <span class="num">' + _currentItems.length + '</span> items' +
-              (tickerCount ? ' · Stocks <span class="num">' + tickerCount + '</span>' : '') +
-              (topicCount ? ' · Topics <span class="num">' + topicCount + '</span>' : '') +
-              (macroCount ? ' · Macro <span class="num">' + macroCount + '</span>' : '') +
-              (commodityCount ? ' · Commodities <span class="num">' + commodityCount + '</span>' : '') +
+            ? '<div class="summary-bar">已关注 <span class="num">' + _currentItems.length + '</span> 项' +
+              (tickerCount ? ' · 股票 <span class="num">' + tickerCount + '</span>' : '') +
+              (topicCount ? ' · 主题 <span class="num">' + topicCount + '</span>' : '') +
+              (macroCount ? ' · 宏观 <span class="num">' + macroCount + '</span>' : '') +
+              (commodityCount ? ' · 商品 <span class="num">' + commodityCount + '</span>' : '') +
               '</div>'
             : '',
 
-          WATCHLIST_BUNDLES.length ? '<div class="section-title">Quick Start</div>' + bundlesHtml : '',
+          WATCHLIST_BUNDLES.length ? '<div class="section-title">推荐组合</div>' + bundlesHtml : '',
 
           pendingHtml,
 
-          '<div style="margin-bottom:14px"><input id="presetSearch" type="text" placeholder="Search companies, topics, keywords · e.g. NVIDIA, AI chips, Fed, gold" oninput="App.searchPresets()" value="" /></div>',
+          '<div style="margin-bottom:14px"><input id="presetSearch" type="text" placeholder="搜索股票、公司、主题，例如 NVIDIA、AI chips、Fed、gold" oninput="App.searchPresets()" value="" /></div>',
 
           '<div class="wl-grid">',
           '<div class="wl-side">' + sidebarHtml + '</div>',
           '<div>',
-          (cat !== "自定义关注" && !search && presets.length ? '<button class="btn secondary sm" style="margin-bottom:12px" onclick="App.addCategory(\'' + esc(cat) + '\')">Add all in this category (' + presets.length + ' items)</button>' : ""),
+          (cat !== "自定义关注" && !search && presets.length ? '<button class="btn secondary sm" style="margin-bottom:12px" onclick="App.addCategory(\'' + esc(cat) + '\')">添加本分类全部 ' + presets.length + ' 项</button>' : ""),
           chips,
 
-          '<collapsible><div class="head" onclick="this.parentElement.classList.toggle(\'open\')">Currently Monitoring (' + _currentItems.length + ' items)</div><div class="body">' + currentHtml + '</div></collapsible>',
-          '<collapsible><div class="head" onclick="this.parentElement.classList.toggle(\'open\')">Custom Item</div><div class="body"><p class="form-hint" style="margin-bottom:8px">Add items not found in the preset library.</p>' + customForm + '</div></collapsible>',
+          '<collapsible><div class="head" onclick="this.parentElement.classList.toggle(\'open\')">已关注 ' + _currentItems.length + ' 项</div><div class="body">' + currentHtml + '</div></collapsible>',
+          '<collapsible><div class="head" onclick="this.parentElement.classList.toggle(\'open\')">添加自定义关注项</div><div class="body"><p class="form-hint" style="margin-bottom:8px">预设里找不到时，可以手动添加关键词。</p>' + customForm + '</div></collapsible>',
 
           '</div></div>',
         ].join("");
@@ -635,7 +764,7 @@ var App = (function () {
         render("", cat);
       };
 
-    } catch (e) { showError("Failed to load: " + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
+    } catch (e) { showError("加载失败：" + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
   };
 
   window.doCustomAdd = async function () {
@@ -644,12 +773,12 @@ var App = (function () {
     var symbol = document.getElementById("addSymbol").value.trim();
     var keyword = document.getElementById("addKeyword").value.trim();
     var display = document.getElementById("addDisplay").value.trim();
-    if (!keyword) return showError("Search keyword is required");
+    if (!keyword) return showError("请填写搜索关键词");
     try {
       await API.watchlists.addItem(_currentWlId, {
         item_type: itemType, symbol: symbol, keyword: keyword, display_name: display, name: display || keyword,
       });
-      showToast("Item added");
+      showToast("关注项已添加", "good");
       window.watchlistDetail();
     } catch (e) { showError(e.message); }
   };
@@ -657,86 +786,208 @@ var App = (function () {
   /* ── Jobs ── */
   window.jobs = async function () {
     showError("");
-    $container.innerHTML = pageHead("任务状态", '') + '<div class="page-body"><div class="spinner"></div></div>';
+    clearTimeout(_jobRefreshTimer);
+    $container.innerHTML = pageHead("生成记录", '<button class="btn secondary" onclick="App.jobs()">刷新</button>') + '<div class="page-body">' + loadingView() + '</div>';
     try {
       var jobs = await API.jobs.list();
+      var hasRunning = jobs.some(function (j) { return j.status === "running" || j.status === "pending"; });
       var rows = jobs.map(function (j) {
         var isDaily = j.job_type === "daily";
         var stBadge = j.status === "succeeded" ? "good" : j.status === "failed" || j.status === "dead" ? "bad" : j.status === "running" ? "info" : "warn";
         return '<tr>' +
           '<td style="font-family:var(--font-mono);font-size:12px">#' + j.id + '</td>' +
-          '<td>' + badge(j.status, stBadge) + '</td>' +
-          '<td>' + esc(j.job_type) + (isDaily ? ' <span class="badge info">daily</span>' : '') + '</td>' +
+          '<td>' + badge(_jobStatusText(j.status), stBadge) + '</td>' +
+          '<td>' + (isDaily ? '每日自动' : '手动生成') + '</td>' +
           '<td style="color:var(--text-dim)">' + esc(j.scheduled_for || "-") + '</td>' +
           '<td>' + (j.attempt_count || 0) + '/' + (j.max_attempts || 3) + '</td>' +
           '<td style="color:var(--red);font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(j.error_message || "") + '</td>' +
           '<td style="color:var(--text-dim);font-size:12px">' + esc(fmtTime(j.created_at)) + '</td>' +
           '<td>' +
-            (j.status === "succeeded" && j.report_id ? '<a href="#report-detail/' + j.report_id + '" style="margin-right:8px">Report #' + j.report_id + '</a>' : "") +
+            (j.status === "succeeded" && j.report_id ? '<a href="#report-detail/' + j.report_id + '" style="margin-right:8px">查看报告</a>' : "") +
             '<button class="btn secondary sm" onclick="App.runJob(' + j.id + ')">手动运行</button>' +
           '</td></tr>';
       }).join("");
 
       var body = document.querySelector(".page-body");
       body.innerHTML = [
-        '<div class="notice info" style="margin-bottom:16px">这里用于查看报告生成任务状态。普通用户通常只需要在关注列表中点击生成今日报告。</div>',
+        hasRunning
+          ? '<div class="notice info" style="margin-bottom:16px">有报告任务正在处理中，本页会自动刷新。</div>'
+          : '<div class="notice info" style="margin-bottom:16px">最近的报告生成任务都在这里。</div>',
         '<div class="card"><div class="card-pad">',
         jobs.length
-          ? '<div class="table-wrap"><table><thead><tr><th>ID</th><th>Status</th><th>Type</th><th>Scheduled</th><th>Attempts</th><th>Error</th><th>Created</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-          : '<div class="empty-state"><div class="empty-state-icon">⚡</div><p>No jobs yet</p><p style="color:var(--text-muted);font-size:12px">Create a watchlist, add items, then click 生成今日报告.</p><a class="btn secondary sm" style="margin-top:4px" href="#watchlists">Go to Watchlists</a></div>',
+          ? '<div class="table-wrap"><table><thead><tr><th>ID</th><th>状态</th><th>类型</th><th>计划时间</th><th>尝试次数</th><th>错误</th><th>创建时间</th><th>操作</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+          : '<div class="empty-state"><div class="empty-state-icon">⚡</div><p>还没有生成记录</p><p style="color:var(--text-muted);font-size:12px">先创建关注列表并添加关注项，然后点击“生成今日报告”。</p><a class="btn secondary sm" style="margin-top:4px" href="#watchlists">去创建关注列表</a></div>',
         '</div></div>',
       ].join("");
-    } catch (e) { showError("Failed to load: " + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
+      if (hasRunning) {
+        _jobRefreshTimer = setTimeout(function () {
+          if ((location.hash || "#").replace("#", "").split("/")[0] === "jobs") window.jobs();
+        }, 3500);
+      }
+    } catch (e) { showError("加载失败：" + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
   };
 
-  window.runJob = async function (jobId) {
+  window.runJob = async function (jobId, btn) {
     showError("");
+    var restore = setBusyButton(btn, "运行中...");
     try {
+      showProgress("正在运行报告任务", "任务 #" + jobId + " 正在启动", ["启动任务", "分析新闻与风险", "保存报告"]);
       var job = await API.jobs.run(jobId);
+      if (job && job.status === "running") {
+        updateProgress(1, "任务正在运行，自动刷新状态");
+        job = await pollJobUntilSettled(jobId);
+      }
       var st = job.status || "";
       if (st === "succeeded" && job.report_id) {
-        showToast("Job #" + jobId + " completed! Report #" + job.report_id);
+        updateProgress(2, "报告已保存");
+        showToast("任务已完成，报告 #" + job.report_id, "good");
+        setTimeout(hideProgress, 500);
       } else if (st === "failed" || st === "dead") {
-        showToast("Job #" + jobId + " " + st + ": " + (job.error_message || "unknown error"));
+        hideProgress();
+        showToast("任务失败：" + (job.error_message || "unknown error"), "bad");
       } else if (st === "running") {
-        showToast("Job #" + jobId + " is running. Refresh to check status.");
+        showToast("任务仍在运行，本页会继续刷新。", "warn");
       } else {
-        showToast("Job #" + jobId + " status: " + st);
+        hideProgress();
+        showToast("任务状态：" + st, "warn");
       }
       enqueue(window.jobs);
-    } catch (e) { showError(e.message); }
+    } catch (e) {
+      hideProgress();
+      showError(e.message);
+    } finally {
+      restore();
+    }
   };
+
+  /* ── Opportunities ── */
+  window.opportunities = function () {
+    showError("");
+    $container.innerHTML = pageHead("机会扫描", '<button class="btn primary" onclick="App.runOpportunityScan(this)">开始扫描</button>') + [
+      '<div class="page-body">',
+      '<div class="opportunity-start">',
+      '<div>',
+      '<div class="opportunity-kicker">Market Opportunity Radar</div>',
+      '<h2>先看最新金融新闻，再识别关联股票</h2>',
+      '<p>不按固定股票列表筛选。系统会先按新闻新鲜度扫描市场消息，再从金融相关事件里找出可研究的股票候选。</p>',
+      '</div>',
+      '<button class="btn primary" onclick="App.runOpportunityScan(this)">扫描今日机会</button>',
+      '</div>',
+      '<div id="opportunityResult">',
+      '<div class="empty-state"><p>点击“扫描今日机会”后，这里会显示候选榜单。</p></div>',
+      '</div>',
+      '</div>',
+    ].join("");
+  };
+
+  window.runOpportunityScan = async function (btn) {
+    showError("");
+    var restore = setBusyButton(btn, "扫描中...");
+    try {
+      showProgress("正在扫描今日机会", "正在收集最新金融新闻", ["收集新闻", "按新鲜度排序", "识别关联股票", "生成候选榜"], "");
+      updateProgress(1, "正在按发布时间和来源质量排序");
+      var result = await API.opportunities.scan({ limit: 180, max_items: 10 });
+      updateProgress(3, "候选榜单已生成");
+      renderOpportunityResult(result);
+      showToast("机会扫描已完成", "good");
+      setTimeout(hideProgress, 500);
+    } catch (e) {
+      hideProgress();
+      showError("机会扫描失败：" + e.message);
+    } finally {
+      restore();
+    }
+  };
+
+  function renderOpportunityResult(result) {
+    var recommendations = result.recommendations || [];
+    var trends = result.trends || [];
+    var trendByTicker = {};
+    trends.forEach(function (t) { trendByTicker[String(t.ticker || "").toUpperCase()] = t; });
+
+    var stats = [
+      ["候选新闻", result.candidate_news_count || 0],
+      ["近 72 小时", result.filtered_news_count || 0],
+      ["已分析", result.analyzed_news_count || result.total_news || 0],
+      ["候选标的", recommendations.length],
+    ].map(function (row) {
+      return '<div class="opportunity-stat"><span>' + esc(row[0]) + '</span><strong>' + esc(row[1]) + '</strong></div>';
+    }).join("");
+
+    var cards = recommendations.map(function (rec, idx) {
+      var ticker = String(rec.ticker || "").toUpperCase();
+      var trend = trendByTicker[ticker] || {};
+      var reasons = rec.watch_points && rec.watch_points.length ? rec.watch_points : (trend.reasons || []);
+      var risks = rec.risk_flags && rec.risk_flags.length ? rec.risk_flags : (trend.risk_flags || []);
+      return '<article class="opportunity-card">' +
+        '<div class="opportunity-rank">' + String(idx + 1).padStart(2, "0") + '</div>' +
+        '<div class="opportunity-main">' +
+          '<div class="opportunity-topline">' +
+            '<div><h3>' + esc(ticker) + '<span>' + esc(tickerName(ticker)) + '</span></h3></div>' +
+            '<div class="source-badges">' +
+              badge(rec.recommendation_type || "候选", opportunityBadgeType(rec)) +
+              badge(rec.direction || trend.direction || "中性", (String(rec.direction || "").indexOf("正") >= 0 ? "good" : String(rec.direction || "").indexOf("负") >= 0 ? "warn" : "neutral")) +
+            '</div>' +
+          '</div>' +
+          '<p class="opportunity-rationale">' + esc(rec.rationale || "近期新闻出现可跟踪信号，建议进一步研究基本面、估值和价格位置。") + '</p>' +
+          '<div class="opportunity-metrics">' +
+            metaPill("置信度", formatPct(rec.confidence)) +
+            metaPill("事件权重", formatScore(rec.event_importance || trend.event_importance)) +
+            metaPill("市场确认", rec.market_confirmation || trend.market_confirmation || "-") +
+            metaPill("风险", rec.risk_level || trend.risk_level || "-") +
+            metaPill("窗口", rec.time_window || "-") +
+            metaPill("新闻数", trend.news_count || "-") +
+          '</div>' +
+          (reasons.length ? '<div class="opportunity-points"><strong>关注点</strong>' + reasons.slice(0, 3).map(function (r) { return '<span>' + esc(r) + '</span>'; }).join("") + '</div>' : '') +
+          (risks.length ? '<div class="opportunity-points risk"><strong>风险点</strong>' + risks.slice(0, 3).map(function (r) { return '<span>' + esc(r) + '</span>'; }).join("") + '</div>' : '') +
+        '</div>' +
+      '</article>';
+    }).join("");
+
+    var target = document.getElementById("opportunityResult");
+    if (!target) return;
+    target.innerHTML = [
+      '<div class="opportunity-toolbar">',
+      '<div class="opportunity-stats">' + stats + '</div>',
+      result.report_id ? '<a class="btn secondary" href="#report-detail/' + result.report_id + '">查看完整报告</a>' : '',
+      '</div>',
+      '<div class="notice info" style="margin-bottom:16px">榜单用于筛选研究对象，不是买卖建议。下单前还需要结合价格、估值、财报和自身风险承受能力。</div>',
+      recommendations.length
+        ? '<div class="opportunity-list">' + cards + '</div>'
+        : '<div class="empty-state"><p>本次没有筛出足够明确的候选标的。</p><p style="color:var(--text-muted);font-size:12px">可以稍后再扫，或先用关注列表分析指定股票。</p></div>',
+    ].join("");
+  }
 
   /* ── Today ── */
   window.today = async function () {
     showError("");
-    $container.innerHTML = pageHead("Today", '') + '<div class="page-body"><div class="spinner"></div></div>';
+    $container.innerHTML = pageHead("今日报告", '') + '<div class="page-body">' + loadingView() + '</div>';
     try {
       var reports = await API.reports.today();
       var rows = reports.map(function (r) {
         var cs = r.compliance_status || "safe";
-        return '<tr><td><a href="#report-detail/' + r.id + '">' + esc(r.title || r.query) + '</a></td><td style="color:var(--text-dim)">#' + r.watchlist_id + '</td><td>' + esc(r.risk_level || "?") + '</td><td>' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</td><td style="color:var(--text-dim);font-size:12px">' + esc(fmtTime(r.created_at)) + '</td><td><a class="btn secondary sm" href="#report-detail/' + r.id + '">View</a></td></tr>';
+        return '<tr><td><a href="#report-detail/' + r.id + '">' + esc(r.title || r.query) + '</a></td><td style="color:var(--text-dim)">#' + r.watchlist_id + '</td><td>' + esc(r.risk_level || "?") + '</td><td>' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</td><td style="color:var(--text-dim);font-size:12px">' + esc(fmtTime(r.created_at)) + '</td><td><a class="btn secondary sm" href="#report-detail/' + r.id + '">查看</a></td></tr>';
       }).join("");
 
       var body = document.querySelector(".page-body");
       body.innerHTML = [
         '<div class="card"><div class="card-pad">',
         reports.length
-          ? '<div class="table-wrap"><table><thead><tr><th>Title</th><th>Watchlist</th><th>Risk</th><th>Compliance</th><th>Created</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-          : '<div class="empty-state"><div class="empty-state-icon">📅</div><p>No reports today</p><p style="color:var(--text-muted);font-size:12px">Create a watchlist, add items, then click 生成今日报告.</p><a class="btn secondary sm" style="margin-top:4px" href="#watchlists">Get started</a></div>',
+          ? '<div class="table-wrap"><table><thead><tr><th>标题</th><th>关注列表</th><th>风险</th><th>合规</th><th>创建时间</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+          : '<div class="empty-state"><div class="empty-state-icon">📅</div><p>今天还没有报告</p><p style="color:var(--text-muted);font-size:12px">先创建关注列表并添加关注项，然后点击“生成今日报告”。</p><a class="btn secondary sm" style="margin-top:4px" href="#watchlists">开始创建</a></div>',
         '</div></div>',
       ].join("");
-    } catch (e) { showError("Failed to load: " + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
+    } catch (e) { showError("加载失败：" + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
   };
 
   /* ── Reports ── */
   window.reports = async function () {
     showError("");
-    $container.innerHTML = pageHead("Reports", '<button class="btn secondary" onclick="window.reports()">Clear</button>') + '<div class="page-body"><div class="spinner"></div></div>';
+    $container.innerHTML = pageHead("历史报告", '<button class="btn secondary" onclick="window.reports()">清空筛选</button>') + '<div class="page-body">' + loadingView() + '</div>';
     try {
       var reports = await API.reports.list();
       _renderReports(reports);
-    } catch (e) { showError("Failed to load: " + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
+    } catch (e) { showError("加载失败：" + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
   };
 
   window.filterReports = async function () {
@@ -745,7 +996,7 @@ var App = (function () {
     var ticker = $("filterTicker").value.trim();
     var date = $("filterDate").value;
     var limit = Number($("filterLimit").value) || 20;
-    document.querySelector(".page-body").innerHTML = '<div class="spinner"></div>';
+    document.querySelector(".page-body").innerHTML = loadingView();
     try {
       var reports = await API.reports.list({
         watchlist_id: wlId || undefined,
@@ -754,7 +1005,7 @@ var App = (function () {
         limit: limit,
       });
       _renderReports(reports);
-    } catch (e) { showError("Filter failed: " + e.message); }
+    } catch (e) { showError("筛选失败：" + e.message); }
   };
 
   function _renderReports(reports) {
@@ -768,18 +1019,18 @@ var App = (function () {
       '<div class="card" style="margin-bottom:16px"><div class="card-pad">',
       '<div class="form-grid">',
       '<div class="form-row">',
-      '<input id="filterWlId" type="text" placeholder="Watchlist ID" style="flex:1" />',
-      '<input id="filterTicker" type="text" placeholder="Ticker e.g. NVDA" style="flex:1" />',
-      '<input id="filterDate" type="text" placeholder="Date YYYY-MM-DD" style="flex:1" />',
-      '<input id="filterLimit" type="number" value="20" min="1" max="100" placeholder="Limit" style="width:80px;flex:none" />',
-      '<button class="btn primary" onclick="App.filterReports()">Search</button>',
+      '<input id="filterWlId" type="text" placeholder="关注列表 ID" style="flex:1" />',
+      '<input id="filterTicker" type="text" placeholder="股票代码，例如 NVDA" style="flex:1" />',
+      '<input id="filterDate" type="text" placeholder="日期 YYYY-MM-DD" style="flex:1" />',
+      '<input id="filterLimit" type="number" value="20" min="1" max="100" placeholder="数量" style="width:80px;flex:none" />',
+      '<button class="btn primary" onclick="App.filterReports()">搜索</button>',
       '</div></div>',
       '</div></div>',
 
       '<div class="card"><div class="card-pad">',
       reports.length
-        ? '<div class="table-wrap"><table><thead><tr><th>Title</th><th>Compliance</th><th>Risk</th><th>Created</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-        : '<div class="empty-state"><div class="empty-state-icon">📄</div><p>No reports found</p><p style="color:var(--text-muted);font-size:12px">Try adjusting the filter criteria or clear filters to see all reports.</p></div>',
+        ? '<div class="table-wrap"><table><thead><tr><th>标题</th><th>合规</th><th>风险</th><th>创建时间</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+        : '<div class="empty-state"><div class="empty-state-icon">📄</div><p>没有找到报告</p><p style="color:var(--text-muted);font-size:12px">可以调整筛选条件，或清空筛选查看全部报告。</p></div>',
       '</div></div>',
     ].join("");
   }
@@ -789,14 +1040,14 @@ var App = (function () {
     showError("");
     var parts = (location.hash || "#").replace("#report-detail/", "").split("/");
     var reportId = Number(parts[0]);
-    $container.innerHTML = pageHead("Report #" + reportId, '', "#reports") + '<div class="page-body"><div class="spinner"></div></div>';
+    $container.innerHTML = pageHead("报告 #" + reportId, '', "#reports") + '<div class="page-body">' + loadingView() + '</div>';
     try {
       var report = await API.reports.get(reportId);
       var rp = report.report || report || {};
       var cs = rp.compliance_status || "safe";
       var disclaimer = report.disclaimer || rp.disclaimer || "";
       var items = await API.reports.items(reportId) || [];
-      var reportText = rp.report || rp.summary || "No report available.";
+      var reportText = rp.report || rp.summary || "暂无报告内容。";
       var generatedAt = rp.generated_at || rp.created_at;
       var dash = function (v) {
         return v === undefined || v === null || v === ""
@@ -824,32 +1075,35 @@ var App = (function () {
 
         '<div class="card" style="margin-bottom:16px"><div class="card-pad">',
         '<div class="report-meta">',
-        '<span><strong>Risk Level:</strong> ' + esc(rp.risk_level || "?") + '</span>',
-        '<span><strong>Compliance:</strong> ' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</span>',
-        '<span><strong>Generated:</strong> ' + esc(fmtTime(generatedAt) || "-") + '</span>',
+        '<span><strong>风险等级：</strong> ' + esc(rp.risk_level || "?") + '</span>',
+        '<span><strong>合规状态：</strong> ' + badge(cs, cs === "unsafe" ? "bad" : cs === "warning" ? "warn" : "good") + '</span>',
+        '<span><strong>生成时间：</strong> ' + esc(fmtTime(generatedAt) || "-") + '</span>',
         '</div>',
         disclaimer ? '<div class="notice info" style="margin-bottom:14px">' + esc(disclaimer) + '</div>' : "",
         '<div class="report-box">' + formatReportText(reportText) + '</div>',
         '</div></div>',
 
-        '<div class="section-title">生成链路摘要</div>',
+        '<div class="section-title">生成摘要</div>',
         '<div class="card" style="margin-bottom:16px"><div class="card-pad"><div class="chain-summary-grid">' + chainHtml + '</div></div></div>',
 
-        '<div class="section-title">Sources (' + items.length + ')</div>',
+        '<div class="section-title">新闻来源（' + items.length + '）</div>',
         items.length
           ? '<div class="source-list">' + items.map(renderSourceCard).join("") + '</div>'
-          : '<div class="empty-state" style="min-height:80px">No structured sources found for this report.</div>',
+          : '<div class="empty-state" style="min-height:80px">这份报告没有结构化新闻来源。</div>',
       ].join("");
-    } catch (e) { showError("Failed to load: " + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
+    } catch (e) { showError("加载失败：" + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
   };
 
   return {
     init: init,
     navigate: navigate,
+    hideProgress: hideProgress,
     doLogin: window.doLogin,
     doRegister: window.doRegister,
     createWatchlist: window.createWatchlist,
     createJob: window.createJob,
+    runOpportunityScan: window.runOpportunityScan,
+    jobs: window.jobs,
     runJob: window.runJob,
     togglePreset: window.togglePreset,
     addBundle: window.addBundle,

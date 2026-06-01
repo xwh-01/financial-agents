@@ -160,6 +160,9 @@ class TickerTrend(BaseModel):
     direction: str
     confidence: float
     impact_score: float
+    event_importance: float = 1.0
+    market_confirmation: str = "未配置行情数据"
+    confirmation_score: float = 0.0
     risk_level: str
     news_count: int
     reasons: list[str] = Field(default_factory=list)
@@ -196,6 +199,9 @@ class FinancialRecommendation(BaseModel):
     recommendation_type: str
     direction: str
     confidence: float
+    event_importance: float = 1.0
+    market_confirmation: str = "未配置行情数据"
+    confirmation_score: float = 0.0
     risk_level: str
     time_window: str
     rationale: str

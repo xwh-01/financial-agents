@@ -1,6 +1,8 @@
 import json
 import os
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -127,6 +129,7 @@ def init_db() -> None:
             )
             """
         )
+        _ensure_indexes(conn)
         conn.commit()
 
 
@@ -207,10 +210,56 @@ def get_report(report_id: int) -> dict | None:
     return result
 
 
-def _connect() -> sqlite3.Connection:
+@contextmanager
+def _connect() -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    return conn
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA journal_mode = WAL")
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+def _ensure_indexes(conn: sqlite3.Connection) -> None:
+    indexes = [
+        """
+        CREATE INDEX IF NOT EXISTS idx_watchlists_user_id
+        ON watchlists(user_id, id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_watchlist_items_watchlist_id
+        ON watchlist_items(watchlist_id, symbol)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_reports_user_created
+        ON reports(user_id, created_at DESC, id DESC)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_reports_user_watchlist_created
+        ON reports(user_id, watchlist_id, created_at DESC, id DESC)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_report_items_report_id
+        ON report_items(report_id, id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_report_jobs_user_created
+        ON report_jobs(user_id, created_at DESC, id DESC)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_report_jobs_pending_scan
+        ON report_jobs(status, scheduled_for, created_at, id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_report_jobs_watchlist_status
+        ON report_jobs(watchlist_id, status)
+        """,
+    ]
+    for statement in indexes:
+        conn.execute(statement)
 
 
 def _ensure_watchlist_items_columns(conn: sqlite3.Connection) -> None:

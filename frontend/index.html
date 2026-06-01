@@ -129,6 +129,9 @@
       display: flex; flex-direction: column; transition: margin-left .2s ease;
     }
     .sidebar.collapsed ~ .main-area { margin-left: 60px; }
+    body.auth-mode .sidebar { display: none; }
+    body.auth-mode .main-area { margin-left: 0; }
+    body.auth-mode .error-box { max-width: 400px; margin: 18px auto 0; }
 
     /* ===== Page Header ===== */
     .page-head {
@@ -160,6 +163,7 @@
     }
     .auth-card h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
     .auth-card .auth-desc { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; }
+    .auth-kicker { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 10px; }
 
     /* ===== Common Components ===== */
     .card {
@@ -228,12 +232,65 @@
       background: var(--surface-1); border: 1px solid var(--border);
       font-size: 13px; display: none; box-shadow: var(--shadow-md); color: var(--text);
     }
+    .toast.good { border-color: rgba(0,181,120,0.22); color: var(--green); }
+    .toast.warn { border-color: rgba(222,120,0,0.22); color: var(--amber); }
+    .toast.bad { border-color: rgba(245,63,63,0.22); color: var(--red); }
     .spinner {
       width: 24px; height: 24px; border-radius: 50%;
       border: 2px solid var(--border); border-top-color: var(--accent);
       animation: spin .65s linear infinite; margin: 48px auto;
     }
+    .skeleton-stack { display: grid; gap: 12px; }
+    .skeleton-line, .skeleton-card {
+      position: relative; overflow: hidden; border-radius: var(--radius-sm);
+      background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2));
+      background-size: 220% 100%; animation: shimmer 1.15s ease-in-out infinite;
+    }
+    .skeleton-card { height: 84px; border: 1px solid var(--border-light); }
+    .skeleton-line { height: 14px; }
+    .skeleton-line.short { width: 38%; }
+    .skeleton-line.mid { width: 62%; }
+    .skeleton-line.long { width: 86%; }
+    .progress-overlay {
+      position: fixed; inset: 0; z-index: 90; display: none;
+      align-items: center; justify-content: center; padding: 24px;
+      background: rgba(31,35,41,0.18); backdrop-filter: blur(2px);
+    }
+    .progress-panel {
+      width: min(460px, 100%); border-radius: var(--radius-lg);
+      background: var(--surface-1); border: 1px solid var(--border);
+      box-shadow: var(--shadow-md); padding: 22px;
+    }
+    .progress-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .progress-title { font-size: 16px; font-weight: 700; }
+    .progress-detail { color: var(--text-dim); font-size: 13px; margin-top: 4px; }
+    .progress-time { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+    .progress-steps { display: grid; gap: 8px; margin-top: 18px; }
+    .progress-step {
+      display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 13px;
+    }
+    .progress-dot {
+      width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border);
+      display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      background: var(--surface-2);
+    }
+    .progress-step.active { color: var(--accent); font-weight: 600; }
+    .progress-step.done { color: var(--green); }
+    .progress-step.active .progress-dot {
+      border-color: var(--accent); background: var(--accent-glow);
+    }
+    .progress-step.active .progress-dot::after {
+      content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+      animation: pulse .9s ease-in-out infinite;
+    }
+    .progress-step.done .progress-dot { border-color: var(--green); background: var(--green-bg); }
+    .progress-step.done .progress-dot::after {
+      content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+    }
+    .progress-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes shimmer { to { background-position: -220% 0; } }
+    @keyframes pulse { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
     .page-fade { animation: fadeIn .2s ease; }
 
@@ -360,8 +417,8 @@
     collapsible .head:hover { color: var(--text); }
     collapsible .body { display: none; padding: 8px 0; }
     collapsible.open .body { display: block; }
-    collapsible .head::before { content: "▸"; font-size: 10px; width: 12px; color: var(--text-muted); display: inline-block; transition: transform .15s; }
-    collapsible.open .head::before { content: "▾"; }
+    collapsible .head::before { content: ">"; font-size: 10px; width: 12px; color: var(--text-muted); display: inline-block; transition: transform .15s; }
+    collapsible.open .head::before { transform: rotate(90deg); }
 
     /* ===== Report ===== */
     .report-box {
@@ -446,6 +503,62 @@
       text-overflow: ellipsis; white-space: nowrap; max-width: 320px;
     }
 
+    /* ===== Opportunity Scan ===== */
+    .opportunity-start {
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+      padding: 22px 24px; margin-bottom: 18px; border: 1px solid var(--border);
+      border-radius: var(--radius); background: var(--surface-1); box-shadow: var(--shadow-xs);
+    }
+    .opportunity-kicker {
+      font-size: 11px; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px;
+    }
+    .opportunity-start h2 { font-size: 18px; line-height: 1.35; margin: 0 0 4px; }
+    .opportunity-start p { color: var(--text-dim); font-size: 13px; max-width: 620px; }
+    .opportunity-toolbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .opportunity-stats { display: grid; grid-template-columns: repeat(4, minmax(110px, 1fr)); gap: 8px; flex: 1; }
+    .opportunity-stat {
+      padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--surface-1); display: flex; justify-content: space-between; align-items: center;
+      gap: 10px; font-size: 12px; color: var(--text-dim);
+    }
+    .opportunity-stat strong { color: var(--text); font-size: 15px; font-weight: 700; }
+    .opportunity-list { display: grid; gap: 12px; }
+    .opportunity-card {
+      display: grid; grid-template-columns: 46px 1fr; gap: 14px; padding: 16px;
+      border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-1);
+      box-shadow: var(--shadow-xs);
+    }
+    .opportunity-rank {
+      width: 36px; height: 36px; border-radius: 6px; background: var(--accent-glow);
+      color: var(--accent); display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+    }
+    .opportunity-main { min-width: 0; }
+    .opportunity-topline { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .opportunity-topline h3 { font-size: 18px; line-height: 1.2; margin: 0 0 8px; }
+    .opportunity-topline h3 span {
+      margin-left: 8px; color: var(--text-muted); font-size: 13px; font-weight: 500;
+    }
+    .opportunity-rationale { color: var(--text); font-size: 13px; line-height: 1.7; margin: 0 0 12px; }
+    .opportunity-metrics {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;
+      font-size: 11px; color: var(--text-muted);
+    }
+    .opportunity-points {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px;
+      font-size: 12px; color: var(--text-dim);
+    }
+    .opportunity-points strong { color: var(--text); margin-right: 2px; }
+    .opportunity-points span {
+      padding: 3px 8px; border-radius: 4px; background: var(--surface-2);
+      border: 1px solid var(--border-light);
+    }
+    .opportunity-points.risk span { background: var(--amber-bg); border-color: rgba(222,120,0,0.14); }
+
     /* ===== Section ===== */
     .section-title {
       font-size: 13px; font-weight: 600; color: var(--text-dim); margin-bottom: 12px;
@@ -463,13 +576,31 @@
 
     /* ===== Responsive ===== */
     @media (max-width: 768px) {
+      .sidebar { width: 60px; }
+      .sidebar .sidebar-brand { padding: 16px 14px; justify-content: center; }
+      .sidebar .sidebar-name,
+      .sidebar .sidebar-nav a span,
+      .sidebar .sidebar-footer a span,
+      .sidebar .sidebar-toggle span { display: none; }
+      .sidebar .sidebar-nav a { justify-content: center; padding: 10px; }
+      .sidebar .sidebar-nav .nav-divider { margin: 6px 18px; }
+      .sidebar-toggle { justify-content: center; margin: 0 8px; }
+      .main-area,
+      .sidebar.collapsed ~ .main-area { margin-left: 60px; }
       .page-head { padding: 16px 20px; }
       .page-body { padding: 16px 20px 40px; }
       .error-box { margin: 12px 20px 0; }
+      .auth-full { min-height: 100vh; padding: 18px; }
+      .auth-card { width: 100%; max-width: 380px; padding: 30px 28px; }
       .wl-grid { grid-template-columns: 1fr; }
       .wl-side { position: static; flex-direction: row; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
       .wl-side-btn { padding: 6px 10px; font-size: 12px; }
       .source-card { grid-template-columns: 1fr; }
+      .opportunity-start { align-items: stretch; flex-direction: column; }
+      .opportunity-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+      .opportunity-card { grid-template-columns: 1fr; }
+      .opportunity-rank { width: auto; height: 24px; justify-content: flex-start; padding: 0 8px; }
+      .opportunity-topline { flex-direction: column; }
       .source-index { width: auto; height: 24px; border-radius: 4px; justify-content: flex-start; padding: 0 8px; }
       .source-topline { flex-direction: column; }
       .source-badges { justify-content: flex-start; }
@@ -496,8 +627,8 @@
     </main>
   </div>
 
-  <script src="js/api.js?v=7"></script>
+  <script src="js/api.js?v=8"></script>
   <script src="js/presets.js?v=7"></script>
-  <script src="js/app.js?v=11"></script>
+  <script src="js/app.js?v=12"></script>
 </body>
 </html>

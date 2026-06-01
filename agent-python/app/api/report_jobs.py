@@ -70,7 +70,7 @@ async def run_report_job_route(
 async def run_pending_once_route(
     current_user: UserResponse = Depends(get_current_user),
 ):
-    completed = await run_pending_jobs_once(limit=3)
+    completed = await run_pending_jobs_once(limit=3, user_id=current_user.id)
     return {"completed": completed}
 
 

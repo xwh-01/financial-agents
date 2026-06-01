@@ -4,11 +4,26 @@ services:
     ports:
       - "8010:8010"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       - REPORTS_DB_PATH=/data/reports.db
     volumes:
       - ./data:/data
+    restart: unless-stopped
+
+  worker:
+    build: ./agent-python
+    command: ["python", "-m", "report_jobs.worker"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - REPORTS_DB_PATH=/data/reports.db
+    volumes:
+      - ./data:/data
+    depends_on:
+      - backend
     restart: unless-stopped
 
   frontend:

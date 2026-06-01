@@ -330,11 +330,10 @@ async def collect_fin_rss_news(
                 )
                 all_items.extend(items)
 
-                print(f"[fin-rss] ticker feeds extra items collected")
+                print("[fin-rss] ticker feeds extra items collected")
 
     # Cap each provider for diversity, then dedupe.
     capped: list[NewsItem] = []
-    from collections import Counter as _Counter
     provider_counts: dict[str, int] = {}
     for item in all_items:
         p = item.provider

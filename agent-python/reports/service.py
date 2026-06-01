@@ -38,6 +38,30 @@ def save_watchlist_report(
     return report_id
 
 
+def save_opportunity_report(user_id: int, result: dict) -> int:
+    guarded = _apply_guard_safely(result)
+    compliance_status = guarded.get("compliance_status", "safe")
+    disclaimer = guarded.get("disclaimer", "")
+
+    report_id = repository.save_report(
+        user_id=user_id,
+        watchlist_id=None,
+        title="今日机会扫描",
+        query=str(guarded.get("query") or "market opportunity scan"),
+        summary=_extract_summary(guarded),
+        risk_level=_extract_risk_level(guarded),
+        report_type="opportunity",
+        report_json=guarded,
+        compliance_status=compliance_status,
+        disclaimer=disclaimer,
+    )
+    repository.save_report_items(
+        report_id=report_id,
+        items=extract_report_items(guarded),
+    )
+    return report_id
+
+
 def list_user_reports(
     user_id: int,
     watchlist_id: int | None = None,

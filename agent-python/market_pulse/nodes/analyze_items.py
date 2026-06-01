@@ -1,5 +1,6 @@
 import asyncio
 
+from app.config import settings
 from market_pulse.schemas import AnalyzeRequest, DailyNewsAnalysis, WorkflowResult
 from market_pulse.state import MarketPulseGraphState
 from market_pulse.workflows.single_news import run_single_news_analysis
@@ -10,10 +11,28 @@ async def analyze_items_node(
 ) -> MarketPulseGraphState:
     """Run single-news analysis for each selected news item."""
     print("[langgraph-market] analyze_items")
-    analyzed_news: list[DailyNewsAnalysis] = []
-    completed_results: list[WorkflowResult] = []
+    selected_news = list(state.get("selected_news", []))
+    concurrency = max(1, settings.market_pulse_analysis_concurrency)
+    semaphore = asyncio.Semaphore(concurrency)
+    analyzed_news = await asyncio.gather(
+        *[_analyze_one_item(item, semaphore) for item in selected_news],
+    )
+    completed_results = [
+        item.analysis_result
+        for item in analyzed_news
+        if item.analysis_result is not None and item.analysis_result.error_message is None
+    ]
 
-    for item in state.get("selected_news", []):
+    return {
+        "analyzed_news": analyzed_news,
+        "completed_results": completed_results,
+        "overall_risk_level": _overall_risk_level(completed_results),
+    }
+
+
+async def _analyze_one_item(item, semaphore: asyncio.Semaphore) -> DailyNewsAnalysis:
+    async with semaphore:
+        timeout = settings.market_pulse_analysis_timeout_seconds
         try:
             analyze_request = AnalyzeRequest(
                 title=item.title,
@@ -23,41 +42,26 @@ async def analyze_items_node(
             )
             analysis_result = await asyncio.wait_for(
                 run_single_news_analysis(analyze_request),
-                timeout=90,
+                timeout=timeout,
             )
-
-            analyzed_news.append(
-                DailyNewsAnalysis(
-                    news=item,
-                    analysis_result=analysis_result,
-                    status=analysis_result.status,
-                    error_message=analysis_result.error_message,
-                )
+            return DailyNewsAnalysis(
+                news=item,
+                analysis_result=analysis_result,
+                status=analysis_result.status,
+                error_message=analysis_result.error_message,
             )
-
-            if analysis_result.error_message is None:
-                completed_results.append(analysis_result)
-
         except Exception as exc:
             error_message = (
-                "analysis timed out after 90 seconds"
+                f"analysis timed out after {timeout} seconds"
                 if isinstance(exc, asyncio.TimeoutError)
                 else str(exc)
             )
-            analyzed_news.append(
-                DailyNewsAnalysis(
-                    news=item,
-                    analysis_result=None,
-                    status="failed",
-                    error_message=error_message,
-                )
+            return DailyNewsAnalysis(
+                news=item,
+                analysis_result=None,
+                status="failed",
+                error_message=error_message,
             )
-
-    return {
-        "analyzed_news": analyzed_news,
-        "completed_results": completed_results,
-        "overall_risk_level": _overall_risk_level(completed_results),
-    }
 
 
 def _overall_risk_level(results: list[WorkflowResult]) -> str:

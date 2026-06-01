@@ -18,10 +18,19 @@ var API = (function () {
   async function request(method, path, body) {
     var opts = { method: method, headers: headers() };
     if (body) opts.body = JSON.stringify(body);
-    var res = await fetch(_baseUrl + path, opts);
+    var res;
+    try {
+      res = await fetch(_baseUrl + path, opts);
+    } catch (e) {
+      throw new Error("无法连接后端服务，请确认 API 地址和后端是否已启动");
+    }
     var data;
     try { data = await res.json(); } catch (_) { data = {}; }
     if (!res.ok) {
+      if (res.status === 401) {
+        setToken("");
+        window.dispatchEvent(new CustomEvent("mkt:unauthorized"));
+      }
       var msg = data.detail;
       if (typeof msg === "object") msg = JSON.stringify(msg);
       var err = new Error(msg || (res.status + " " + res.statusText));
@@ -59,6 +68,12 @@ var API = (function () {
       },
       get: function (id) { return request("GET", "/api/report-jobs/" + id); },
       run: function (id) { return request("POST", "/api/report-jobs/" + id + "/run"); },
+    },
+
+    opportunities: {
+      scan: function (opts) {
+        return request("POST", "/api/opportunities/scan", opts || { limit: 160, max_items: 10 });
+      },
     },
 
     reports: {

@@ -85,32 +85,22 @@ def claim_pending_job(job_id: int) -> bool:
     init_db()
 
     with _connect() as conn:
-        job = conn.execute(
-            "SELECT watchlist_id FROM report_jobs WHERE id = ? AND status IN (?, ?)",
-            (job_id, PENDING, FAILED),
-        ).fetchone()
-        if job is None:
-            return False
-
-        running = conn.execute(
-            """
-            SELECT 1 FROM report_jobs
-            WHERE watchlist_id = ? AND status = ? AND id != ?
-            LIMIT 1
-            """,
-            (job["watchlist_id"], RUNNING, job_id),
-        ).fetchone()
-        if running is not None:
-            return False
-
         cursor = conn.execute(
             """
             UPDATE report_jobs
             SET status = ?, started_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
-                error_message = NULL
+                finished_at = NULL, error_message = NULL
             WHERE id = ? AND status IN (?, ?)
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM report_jobs AS other
+                  WHERE other.watchlist_id = report_jobs.watchlist_id
+                    AND other.status = ?
+                    AND other.id != report_jobs.id
+                  LIMIT 1
+              )
             """,
-            (RUNNING, job_id, PENDING, FAILED),
+            (RUNNING, job_id, PENDING, FAILED, RUNNING),
         )
         conn.commit()
 
@@ -155,27 +145,81 @@ def mark_job_dead(job_id: int, error_message: str) -> None:
     _mark_unsuccessful(job_id, DEAD, error_message)
 
 
-def find_pending_jobs(limit: int = 10) -> list[dict[str, Any]]:
+def find_pending_jobs(
+    limit: int = 10,
+    user_id: int | None = None,
+) -> list[dict[str, Any]]:
     init_db()
     safe_limit = max(1, min(limit, 100))
+    params: list[Any] = [PENDING, FAILED]
+    filters = [
+        "status IN (?, ?)",
+        "attempt_count < max_attempts",
+        "(scheduled_for IS NULL OR scheduled_for <= CURRENT_TIMESTAMP)",
+    ]
+    if user_id is not None:
+        filters.append("user_id = ?")
+        params.append(user_id)
+
+    where_sql = " AND ".join(filters)
 
     with _connect() as conn:
         rows = conn.execute(
-            """
+            f"""
             SELECT id, user_id, watchlist_id, status, job_type, scheduled_for,
                    started_at, finished_at, attempt_count, max_attempts,
                    error_message, report_id, created_at, updated_at
             FROM report_jobs
-            WHERE status IN (?, ?)
-              AND attempt_count < max_attempts
-              AND (scheduled_for IS NULL OR scheduled_for <= CURRENT_TIMESTAMP)
+            WHERE {where_sql}
             ORDER BY COALESCE(scheduled_for, created_at) ASC, id ASC
             LIMIT ?
             """,
-            (PENDING, FAILED, safe_limit),
+            params + [safe_limit],
         ).fetchall()
 
     return [_job_to_dict(row) for row in rows]
+
+
+def requeue_stale_running_jobs(stale_seconds: int, user_id: int | None = None) -> int:
+    init_db()
+    if stale_seconds <= 0:
+        return 0
+
+    update_params: list[Any] = [
+        DEAD,
+        FAILED,
+        "Report job timed out and was requeued",
+    ]
+    filters = [
+        "status = ?",
+        "started_at IS NOT NULL",
+        "datetime(started_at) <= datetime('now', ?)",
+        "attempt_count < max_attempts",
+    ]
+    where_params: list[Any] = [RUNNING, f"-{stale_seconds} seconds"]
+    if user_id is not None:
+        filters.append("user_id = ?")
+        where_params.append(user_id)
+
+    with _connect() as conn:
+        cursor = conn.execute(
+            f"""
+            UPDATE report_jobs
+            SET status = CASE
+                    WHEN attempt_count + 1 >= max_attempts THEN ?
+                    ELSE ?
+                END,
+                error_message = ?,
+                attempt_count = attempt_count + 1,
+                finished_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE {' AND '.join(filters)}
+            """,
+            update_params + where_params,
+        )
+        conn.commit()
+
+    return cursor.rowcount
 
 
 def has_daily_job_today_for_watchlist(watchlist_id: int) -> bool:

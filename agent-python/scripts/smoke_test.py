@@ -47,7 +47,7 @@ def main() -> None:
 
     r = s.post(f"{BASE_URL}/api/auth/register",
                json={"email": email, "password": password})
-    user = _check(r, (200, 201), "POST /api/auth/register")
+    _check(r, (200, 201), "POST /api/auth/register")
 
     r = s.post(f"{BASE_URL}/api/auth/login",
                json={"email": email, "password": password})
@@ -87,7 +87,7 @@ def main() -> None:
 
     if SKIP_RUN_JOB:
         print(f"\n  --skip-run-job set; worker must process job {job_id}")
-        print(f"  Start worker: python -m report_jobs.worker")
+        print("  Start worker: python -m report_jobs.worker")
         print(f"  Or trigger manually: curl -X POST {BASE_URL}/api/report-jobs/{job_id}/run")
     else:
         r = s.post(f"{BASE_URL}/api/report-jobs/{job_id}/run")
