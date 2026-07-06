@@ -1,5 +1,5 @@
 var API = (function () {
-  var _baseUrl = localStorage.getItem("mkt_base_url") || "http://127.0.0.1:8010";
+  var _baseUrl = localStorage.getItem("mkt_base_url") || (window.MKT_CONFIG && window.MKT_CONFIG.apiBaseUrl) || "http://127.0.0.1:8010";
   var _token = localStorage.getItem("mkt_token") || "";
 
   function setBaseUrl(url) { _baseUrl = url.replace(/\/$/, ""); localStorage.setItem("mkt_base_url", _baseUrl); }
@@ -73,6 +73,13 @@ var API = (function () {
     opportunities: {
       scan: function (opts) {
         return request("POST", "/api/opportunities/scan", opts || { limit: 160, max_items: 10 });
+      },
+    },
+
+    marketPulse: {
+      langgraph: function (payload) {
+        var path = (window.MKT_CONFIG && window.MKT_CONFIG.marketPulsePath) || "/api/agent/market-pulse/langgraph";
+        return request("POST", path, payload || { query: "market pulse", max_items: 8 });
       },
     },
 

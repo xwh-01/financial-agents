@@ -36,6 +36,7 @@ build/
 
 # Cache
 .pytest_cache/
+.coverage
 .mypy_cache/
 .ruff_cache/
 agent-python/data/

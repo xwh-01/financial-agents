@@ -4,6 +4,7 @@ from app.config import settings
 from market_pulse.schemas import AnalyzeRequest, DailyNewsAnalysis, WorkflowResult
 from market_pulse.state import MarketPulseGraphState
 from market_pulse.workflows.single_news import run_single_news_analysis
+from safety.compliance import sanitize_text
 
 
 async def analyze_items_node(
@@ -44,6 +45,8 @@ async def _analyze_one_item(item, semaphore: asyncio.Semaphore) -> DailyNewsAnal
                 run_single_news_analysis(analyze_request),
                 timeout=timeout,
             )
+            if analysis_result.report:
+                analysis_result.report, _ = sanitize_text(analysis_result.report)
             return DailyNewsAnalysis(
                 news=item,
                 analysis_result=analysis_result,

@@ -2,11 +2,10 @@ import math
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-import httpx
-
 from app.config import settings
 from app.errors import ExternalServiceError, ExternalServiceNotConfigured
 from clients.llm_client import chat_completion
+from clients.retry import get_json_with_retry
 from market_pulse.schemas import NewsItem
 
 
@@ -68,16 +67,14 @@ async def search_news(
     )
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(settings.news_base_url, params=params)
-
-        if resp.status_code >= 400:
-            raise ExternalServiceError(
-                f"{provider} news request failed: "
-                f"status={resp.status_code}, body={resp.text}"
-            )
-
-        data = resp.json()
+        data = await get_json_with_retry(
+            settings.news_base_url,
+            params=params,
+            timeout=settings.llm_timeout_seconds,
+            max_retries=settings.llm_retry_attempts,
+            backoff_seconds=settings.llm_retry_backoff_seconds,
+            error_type="news_api_failed",
+        )
         if "error" in data:
             raise ExternalServiceError(f"{provider} error: {data}")
         if data.get("status") == "error":

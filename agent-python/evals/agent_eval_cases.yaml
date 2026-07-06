@@ -1,0 +1,55 @@
+cases:
+  - id: normal_market_pulse
+    query: AI semiconductor earnings
+    tickers: [NVDA, AMD]
+    max_items: 4
+    expected_actions:
+      - collect_news
+      - rank_news
+      - analyze_items
+      - risk_review
+      - generate_report
+      - compliance_guard
+    expected_status: completed
+
+  - id: high_risk_route
+    query: bank solvency crisis contagion
+    tickers: [JPM]
+    max_items: 4
+    expected_actions:
+      - collect_news
+      - rank_news
+      - analyze_items
+      - risk_review
+      - generate_report
+      - compliance_guard
+    expected_status: completed
+    risk_level: high
+
+  - id: compliance_guard
+    query: aggressive buy language check
+    tickers: [NVDA]
+    max_items: 3
+    expected_status: completed
+    inject_unsafe_report: true
+    forbidden_phrases:
+      - 稳赚
+      - 保证收益
+      - 建议买入
+      - 必须买入
+      - strong buy
+      - guaranteed return
+
+  - id: source_tracking
+    query: AI supply chain sources
+    tickers: [NVDA, AMD]
+    max_items: 3
+    expected_status: completed
+    require_source_tracking: true
+
+  - id: empty_news_degraded
+    query: no matching public news
+    tickers: [NONE]
+    max_items: 3
+    expected_status_any_of: [failed, degraded]
+    empty_news: true

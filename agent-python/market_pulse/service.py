@@ -6,7 +6,8 @@ from market_pulse.filters.news_filter import dedupe_news, filter_fresh_news
 from market_pulse.analyzers.report_generator import (
     build_daily_trend_report,
     build_financial_recommendations,
-    build_market_pulse_report,
+    build_market_signal_report,
+    build_market_signals,
     predict_ticker_trends,
 )
 from market_pulse.graph import run_langgraph_market_pulse as _run_langgraph_market_pulse
@@ -284,10 +285,11 @@ async def run_market_pulse(request: MarketPulseRequest) -> MarketPulseResponse:
     trends = predict_ticker_trends(completed_results)
     print("[market-pulse] trends:", len(trends))
 
+    market_signals = build_market_signals(trends, analyzed_news)
     recommendations = build_financial_recommendations(trends)
-    print("[market-pulse] recommendations:", len(recommendations))
+    print("[market-pulse] market_signals:", len(market_signals))
 
-    report = build_market_pulse_report(trends, recommendations, analyzed_news)
+    report = build_market_signal_report(market_signals)
     print("[market-pulse] done")
 
     return MarketPulseResponse(
@@ -298,6 +300,7 @@ async def run_market_pulse(request: MarketPulseRequest) -> MarketPulseResponse:
         analyzed_news_count=len(analyzed_news),
         analyzed_news=analyzed_news,
         trends=trends,
+        market_signals=market_signals,
         recommendations=recommendations,
         report=report,
         error_message=None,
@@ -396,8 +399,9 @@ async def run_fresh_opportunity_scan(
             )
 
     trends = predict_ticker_trends(completed_results)
+    market_signals = build_market_signals(trends, analyzed_news)
     recommendations = build_financial_recommendations(trends)
-    report = build_market_pulse_report(trends, recommendations, analyzed_news)
+    report = build_market_signal_report(market_signals)
 
     return MarketPulseResponse(
         status="completed",
@@ -407,6 +411,7 @@ async def run_fresh_opportunity_scan(
         analyzed_news_count=len(analyzed_news),
         analyzed_news=analyzed_news,
         trends=trends,
+        market_signals=market_signals,
         recommendations=recommendations,
         report=report,
         error_message=None,

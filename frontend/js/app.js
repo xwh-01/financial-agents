@@ -66,6 +66,10 @@ var App = (function () {
       sidebar.classList.toggle("collapsed");
       localStorage.setItem("sidebar_collapsed", sidebar.classList.contains("collapsed") ? "1" : "0");
     });
+    document.addEventListener("click", function (event) {
+      var head = event.target.closest && event.target.closest("collapsible .head");
+      if (head) head.parentElement.classList.toggle("open");
+    });
   }
 
   function navigate() {
@@ -289,11 +293,11 @@ var App = (function () {
     return "neutral";
   }
   function opportunityBadgeType(item) {
-    var text = String((item && item.recommendation_type) || "").toLowerCase();
+    var text = String((item && (item.signal_type || item.recommendation_type)) || "").toLowerCase();
     var risk = String((item && item.risk_level) || "").toLowerCase();
     if (text.indexOf("风险") >= 0 || risk === "high") return "bad";
     if (text.indexOf("谨慎") >= 0 || risk === "medium") return "warn";
-    if (text.indexOf("推荐") >= 0 || text.indexOf("关注") >= 0) return "good";
+    if (text.indexOf("market_signal") >= 0 || text.indexOf("观察") >= 0) return "good";
     return "info";
   }
   function _jobStatusText(status) {
@@ -377,6 +381,54 @@ var App = (function () {
         (item.summary ? '<div class="source-block"><div class="source-block-label">摘要</div><p>' + esc(cleanSourceText(item.summary)) + '</p></div>' : '') +
         (item.impact_analysis ? '<div class="source-block"><div class="source-block-label">影响分析</div><p>' + esc(cleanSourceText(item.impact_analysis)) + '</p></div>' : '') +
         (topicLine ? '<div class="source-meta">' + topicLine + '</div>' : '') +
+      '</div>' +
+    '</article>';
+  }
+
+  function renderMarketSignalCard(signal, idx) {
+    var tickers = (signal.related_tickers || []).join(", ") || "-";
+    var articles = signal.supporting_articles || [];
+    var articleHtml = articles.length
+      ? articles.map(function (a, articleIdx) {
+          var url = a.url || "";
+          var title = a.title || "Untitled article";
+          var source = a.source || sourceHost(url) || "unknown source";
+          var titleHtml = url
+            ? '<a href="' + escAttr(url) + '" target="_blank" rel="noopener">' + esc(title) + '</a>'
+            : esc(title);
+          return '<div class="source-block">' +
+            '<div class="source-block-label">相关来源 ' + (articleIdx + 1) + '</div>' +
+            '<p>' + titleHtml + '</p>' +
+            '<div class="source-meta">' +
+              metaPill("Source", source) +
+              metaPill("Published", fmtTime(a.published_at) || a.published_at || "-") +
+              metaPill("Score", formatScore(a.relevance_score)) +
+            '</div>' +
+            (a.reason ? '<p style="margin-top:6px">' + esc(a.reason) + '</p>' : '') +
+          '</div>';
+        }).join("")
+      : '<div class="source-block"><div class="source-block-label">相关来源</div><p>暂无可展开来源，需人工复核。</p></div>';
+
+    return '<article class="source-card">' +
+      '<div class="source-index">' + String(idx + 1).padStart(2, "0") + '</div>' +
+      '<div class="source-content">' +
+        '<div class="source-topline">' +
+          '<div class="source-origin"><strong>' + esc(signal.title || ("市场观察信号 " + (idx + 1))) + '</strong></div>' +
+          '<div class="source-badges">' +
+            badge(signal.risk_level || "unknown", riskBadgeType(signal.risk_level)) +
+            badge("confidence " + formatScore(signal.confidence), "info") +
+          '</div>' +
+        '</div>' +
+        '<div class="source-meta">' +
+          metaPill("Tickers", tickers) +
+          metaPill("Event", signal.event_type || "unknown") +
+          metaPill("Type", signal.signal_type || "market_signal") +
+        '</div>' +
+        '<div class="source-block"><div class="source-block-label">证据摘要</div><p>' + esc(signal.evidence_summary || signal.summary || "") + '</p></div>' +
+        '<div class="source-block"><div class="source-block-label">关联理由</div><p>' + esc(signal.entity_linking_reason || "-") + '</p></div>' +
+        '<div class="source-block"><div class="source-block-label">风险原因</div><p>' + esc(signal.risk_reason || "-") + '</p></div>' +
+        '<div class="source-block"><div class="source-block-label">不确定性说明</div><p>' + esc(signal.uncertainty || "-") + '</p></div>' +
+        '<collapsible><div class="head">展开证据链（' + articles.length + '）</div><div class="body">' + articleHtml + '</div></collapsible>' +
       '</div>' +
     '</article>';
   }
@@ -900,46 +952,62 @@ var App = (function () {
   };
 
   function renderOpportunityResult(result) {
+    var signals = result.market_signals || [];
     var recommendations = result.recommendations || [];
     var trends = result.trends || [];
     var trendByTicker = {};
     trends.forEach(function (t) { trendByTicker[String(t.ticker || "").toUpperCase()] = t; });
+    if (!signals.length && recommendations.length) {
+      signals = recommendations.map(function (rec, idx) {
+        return {
+          signal_id: "legacy-" + idx,
+          title: (rec.ticker || "候选") + " 市场观察信号",
+          summary: rec.rationale || "",
+          risk_level: rec.risk_level,
+          confidence: rec.confidence,
+          related_tickers: rec.ticker ? [rec.ticker] : [],
+          evidence_summary: rec.rationale || "",
+          risk_reason: (rec.risk_flags || []).join("；") || "暂无突出风险标记",
+          uncertainty: "该条目来自 legacy recommendations 字段，证据链可能不完整。",
+          supporting_articles: [],
+          signal_type: "market_signal"
+        };
+      });
+    }
 
     var stats = [
       ["候选新闻", result.candidate_news_count || 0],
       ["近 72 小时", result.filtered_news_count || 0],
       ["已分析", result.analyzed_news_count || result.total_news || 0],
-      ["候选标的", recommendations.length],
+      ["市场观察信号", signals.length],
     ].map(function (row) {
       return '<div class="opportunity-stat"><span>' + esc(row[0]) + '</span><strong>' + esc(row[1]) + '</strong></div>';
     }).join("");
 
-    var cards = recommendations.map(function (rec, idx) {
-      var ticker = String(rec.ticker || "").toUpperCase();
+    var cards = signals.map(function (signal, idx) {
+      var ticker = String((signal.related_tickers || [])[0] || "").toUpperCase();
       var trend = trendByTicker[ticker] || {};
-      var reasons = rec.watch_points && rec.watch_points.length ? rec.watch_points : (trend.reasons || []);
-      var risks = rec.risk_flags && rec.risk_flags.length ? rec.risk_flags : (trend.risk_flags || []);
+      var articles = signal.supporting_articles || [];
       return '<article class="opportunity-card">' +
         '<div class="opportunity-rank">' + String(idx + 1).padStart(2, "0") + '</div>' +
         '<div class="opportunity-main">' +
           '<div class="opportunity-topline">' +
-            '<div><h3>' + esc(ticker) + '<span>' + esc(tickerName(ticker)) + '</span></h3></div>' +
+            '<div><h3>' + esc(ticker || "SIGNAL") + '<span>' + esc(ticker ? tickerName(ticker) : "市场观察信号") + '</span></h3></div>' +
             '<div class="source-badges">' +
-              badge(rec.recommendation_type || "候选", opportunityBadgeType(rec)) +
-              badge(rec.direction || trend.direction || "中性", (String(rec.direction || "").indexOf("正") >= 0 ? "good" : String(rec.direction || "").indexOf("负") >= 0 ? "warn" : "neutral")) +
+              badge("市场观察信号", opportunityBadgeType(signal)) +
+              badge(signal.risk_level || trend.risk_level || "unknown", riskBadgeType(signal.risk_level || trend.risk_level)) +
             '</div>' +
           '</div>' +
-          '<p class="opportunity-rationale">' + esc(rec.rationale || "近期新闻出现可跟踪信号，建议进一步研究基本面、估值和价格位置。") + '</p>' +
+          '<p class="opportunity-rationale">' + esc(signal.summary || signal.evidence_summary || "近期新闻出现可跟踪的市场观察信号，可继续作为研究参考。") + '</p>' +
           '<div class="opportunity-metrics">' +
-            metaPill("置信度", formatPct(rec.confidence)) +
-            metaPill("事件权重", formatScore(rec.event_importance || trend.event_importance)) +
-            metaPill("市场确认", rec.market_confirmation || trend.market_confirmation || "-") +
-            metaPill("风险", rec.risk_level || trend.risk_level || "-") +
-            metaPill("窗口", rec.time_window || "-") +
+            metaPill("置信度", formatPct(signal.confidence)) +
+            metaPill("事件类型", signal.event_type || "-") +
+            metaPill("风险", signal.risk_level || trend.risk_level || "-") +
+            metaPill("证据数", articles.length) +
             metaPill("新闻数", trend.news_count || "-") +
           '</div>' +
-          (reasons.length ? '<div class="opportunity-points"><strong>关注点</strong>' + reasons.slice(0, 3).map(function (r) { return '<span>' + esc(r) + '</span>'; }).join("") + '</div>' : '') +
-          (risks.length ? '<div class="opportunity-points risk"><strong>风险点</strong>' + risks.slice(0, 3).map(function (r) { return '<span>' + esc(r) + '</span>'; }).join("") + '</div>' : '') +
+          '<div class="opportunity-points"><strong>证据摘要</strong><span>' + esc(signal.evidence_summary || "-") + '</span></div>' +
+          '<div class="opportunity-points risk"><strong>不确定性</strong><span>' + esc(signal.uncertainty || "-") + '</span></div>' +
         '</div>' +
       '</article>';
     }).join("");
@@ -951,10 +1019,10 @@ var App = (function () {
       '<div class="opportunity-stats">' + stats + '</div>',
       result.report_id ? '<a class="btn secondary" href="#report-detail/' + result.report_id + '">查看完整报告</a>' : '',
       '</div>',
-      '<div class="notice info" style="margin-bottom:16px">榜单用于筛选研究对象，不是买卖建议。下单前还需要结合价格、估值、财报和自身风险承受能力。</div>',
-      recommendations.length
+      '<div class="notice info" style="margin-bottom:16px">市场观察信号仅用于信息整理和研究参考，不构成投资建议。</div>',
+      signals.length
         ? '<div class="opportunity-list">' + cards + '</div>'
-        : '<div class="empty-state"><p>本次没有筛出足够明确的候选标的。</p><p style="color:var(--text-muted);font-size:12px">可以稍后再扫，或先用关注列表分析指定股票。</p></div>',
+        : '<div class="empty-state"><p>本次没有形成足够明确的市场观察信号。</p><p style="color:var(--text-muted);font-size:12px">可以稍后再扫，或先用关注列表分析指定主题。</p></div>',
     ].join("");
   }
 
@@ -1047,6 +1115,7 @@ var App = (function () {
       var cs = rp.compliance_status || "safe";
       var disclaimer = report.disclaimer || rp.disclaimer || "";
       var items = await API.reports.items(reportId) || [];
+      var marketSignals = rp.market_signals || [];
       var reportText = rp.report || rp.summary || "暂无报告内容。";
       var generatedAt = rp.generated_at || rp.created_at;
       var dash = function (v) {
@@ -1061,6 +1130,8 @@ var App = (function () {
         ["analyzed_news_count", rp.analyzed_news_count],
         ["risk_level / overall_risk_level", chainRisk],
         ["compliance_status", rp.compliance_status],
+        ["market_signal 数量", marketSignals.length],
+        ["trace_id", rp.trace_id],
         ["generated_at", fmtTime(generatedAt)],
         ["source item 数量", items.length],
       ].map(function (row) {
@@ -1085,6 +1156,11 @@ var App = (function () {
 
         '<div class="section-title">生成摘要</div>',
         '<div class="card" style="margin-bottom:16px"><div class="card-pad"><div class="chain-summary-grid">' + chainHtml + '</div></div></div>',
+
+        '<div class="section-title">市场观察信号（' + marketSignals.length + '）</div>',
+        marketSignals.length
+          ? '<div class="source-list" style="margin-bottom:16px">' + marketSignals.map(renderMarketSignalCard).join("") + '</div>'
+          : '<div class="empty-state" style="min-height:80px">这份报告没有结构化 market_signals。</div>',
 
         '<div class="section-title">新闻来源（' + items.length + '）</div>',
         items.length

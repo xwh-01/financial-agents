@@ -43,8 +43,26 @@ python scripts/smoke_test.py --daily-job-check   # 主链路冒烟
 python scripts/check_news_quality.py              # 去重/freshness/source_weight
 python scripts/check_report_guard.py              # 合规扫描
 python evals/ranker_eval.py                       # Ranker 评估
+python evals/agent_eval.py                        # MarketPulseDirectorAgent 评估
 python -m compileall agent-python                 # 语法检查
 ```
+
+## MarketPulseDirectorAgent
+
+这个项目不是投资建议 Agent，不做荐股、买卖建议、收益承诺或自动交易。它是 Watchlist 驱动的财经新闻研究 Agentic Workflow，帮助用户从公开新闻中筛选重点、分析可能影响、提示风险，并保留来源和免责声明。
+
+主流程仍然是可控的 Market Pulse workflow：`collect_news -> rank_news -> analyze_items -> risk_review -> generate_report`。新增的 `MarketPulseDirectorAgent` 位于 `market_pulse/agent/`，它在外层根据当前 state 选择下一步 action，不使用 LLM 决策，便于解释和测试。
+
+Agent tools 复用现有 LangGraph 节点封装：采集、排序、逐条分析、风险审查和报告生成都沿用原业务逻辑；`compliance_guard` 复用既有 `reports.guard.apply_report_guard`，并对 Agent 明确禁用的收益承诺和买入话术做最终收口。
+
+每次运行都会生成 Agent Trace，记录每一步 `action`、`reason`、`observation`、`metrics`、`error` 和时间戳。Trace JSON 保存到 `storage/agent_traces/{trace_id}.json`。
+
+调试接口：
+
+- `POST /api/market-pulse/agent-run` — 运行 Watchlist/query 驱动的 DirectorAgent workflow，返回完整 trace 和 final_result。
+- `GET /api/agent-traces/{trace_id}` — 查看某次 Agent 执行轨迹。
+
+Eval 位于 `evals/agent_eval.py` 和 `evals/agent_eval_cases.yaml`，验证 action 顺序、风险路由、合规 guard、来源追踪，以及空新闻/外部源失败时的 failed 或 degraded 路径。报告输出到 `evals/reports/agent_eval_report.md`。
 
 ## Legacy / Internal
 
@@ -55,3 +73,4 @@ python -m compileall agent-python                 # 语法检查
 - `POST /agent/daily-brief` — 预设 query 简报
 - `POST /agent/market-pulse` — 旧版 Market Pulse（非 LangGraph）
 - `POST /api/agent/market-pulse/langgraph` — Agent 调试入口
+- `POST /api/market-pulse/agent-run` — DirectorAgent trace 调试入口

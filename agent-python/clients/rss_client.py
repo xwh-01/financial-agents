@@ -7,8 +7,8 @@ from urllib.parse import quote_plus
 from urllib.parse import urlparse
 
 import feedparser
-import httpx
 
+from clients.retry import get_bytes_with_retry
 from clients.news_client import collect_latest_market_news
 from app.config import settings
 from market_pulse.schemas import NewsItem
@@ -114,14 +114,16 @@ def load_market_feeds() -> list[MarketFeedConfig]:
 
 
 async def fetch_rss_feed(url: str, limit: int = 20) -> list[NewsItem]:
-    async with httpx.AsyncClient(
+    content = await get_bytes_with_retry(
+        url,
+        headers=RSS_REQUEST_HEADERS,
         timeout=settings.rss_timeout_seconds,
-        follow_redirects=True,
-    ) as client:
-        response = await client.get(url, headers=RSS_REQUEST_HEADERS)
-        response.raise_for_status()
+        max_retries=settings.llm_retry_attempts,
+        backoff_seconds=settings.llm_retry_backoff_seconds,
+        error_type="rss_fetch_failed",
+    )
 
-    parsed = feedparser.parse(response.content)
+    parsed = feedparser.parse(content)
     feed_title = parsed.feed.get("title") if parsed.feed else ""
     source = feed_title or _domain_from_url(url)
     items: list[NewsItem] = []

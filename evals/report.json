@@ -1,0 +1,397 @@
+{
+  "metrics": {
+    "relevance_at_5": 1.0,
+    "ticker_linking_accuracy": 1.0,
+    "risk_label_accuracy": 1.0,
+    "faithfulness_pass_rate": 1.0,
+    "compliance_violation_rate": 0.0,
+    "avg_latency_ms": 0.08,
+    "total_cases": 20,
+    "passed_cases": 20,
+    "failed_cases": 0
+  },
+  "cases": [
+    {
+      "case_id": "nvda_ai_demand",
+      "predicted_tickers": [
+        "NVDA"
+      ],
+      "expected_tickers": [
+        "NVDA"
+      ],
+      "predicted_event_type": "industry_demand",
+      "expected_event_type": "industry_demand",
+      "predicted_risk_level": "low",
+      "expected_risk_level": "low",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "fed_rate_cut",
+      "predicted_tickers": [
+        "SPY",
+        "TLT"
+      ],
+      "expected_tickers": [
+        "SPY",
+        "TLT"
+      ],
+      "predicted_event_type": "macro_policy",
+      "expected_event_type": "macro_policy",
+      "predicted_risk_level": "medium",
+      "expected_risk_level": "medium",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "tsla_recall",
+      "predicted_tickers": [
+        "TSLA"
+      ],
+      "expected_tickers": [
+        "TSLA"
+      ],
+      "predicted_event_type": "regulation_risk",
+      "expected_event_type": "regulation_risk",
+      "predicted_risk_level": "high",
+      "expected_risk_level": "high",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "aapl_earnings",
+      "predicted_tickers": [
+        "AAPL"
+      ],
+      "expected_tickers": [
+        "AAPL"
+      ],
+      "predicted_event_type": "earnings",
+      "expected_event_type": "earnings",
+      "predicted_risk_level": "medium",
+      "expected_risk_level": "medium",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "msft_cloud",
+      "predicted_tickers": [
+        "MSFT"
+      ],
+      "expected_tickers": [
+        "MSFT"
+      ],
+      "predicted_event_type": "industry_demand",
+      "expected_event_type": "industry_demand",
+      "predicted_risk_level": "low",
+      "expected_risk_level": "low",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "oil_supply",
+      "predicted_tickers": [
+        "XLE"
+      ],
+      "expected_tickers": [
+        "XLE"
+      ],
+      "predicted_event_type": "commodity_supply",
+      "expected_event_type": "commodity_supply",
+      "predicted_risk_level": "medium",
+      "expected_risk_level": "medium",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "gold_inflation",
+      "predicted_tickers": [
+        "GLD"
+      ],
+      "expected_tickers": [
+        "GLD"
+      ],
+      "predicted_event_type": "macro_policy",
+      "expected_event_type": "macro_policy",
+      "predicted_risk_level": "medium",
+      "expected_risk_level": "medium",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "bank_stress",
+      "predicted_tickers": [
+        "KRE"
+      ],
+      "expected_tickers": [
+        "KRE"
+      ],
+      "predicted_event_type": "credit_risk",
+      "expected_event_type": "credit_risk",
+      "predicted_risk_level": "high",
+      "expected_risk_level": "high",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "amzn_retail",
+      "predicted_tickers": [
+        "AMZN"
+      ],
+      "expected_tickers": [
+        "AMZN"
+      ],
+      "predicted_event_type": "earnings",
+      "expected_event_type": "earnings",
+      "predicted_risk_level": "low",
+      "expected_risk_level": "low",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "meta_regulation",
+      "predicted_tickers": [
+        "META"
+      ],
+      "expected_tickers": [
+        "META"
+      ],
+      "predicted_event_type": "regulation_risk",
+      "expected_event_type": "regulation_risk",
+      "predicted_risk_level": "high",
+      "expected_risk_level": "high",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "goog_antitrust",
+      "predicted_tickers": [
+        "GOOGL"
+      ],
+      "expected_tickers": [
+        "GOOGL"
+      ],
+      "predicted_event_type": "regulation_risk",
+      "expected_event_type": "regulation_risk",
+      "predicted_risk_level": "high",
+      "expected_risk_level": "high",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "amd_product",
+      "predicted_tickers": [
+        "AMD"
+      ],
+      "expected_tickers": [
+        "AMD"
+      ],
+      "predicted_event_type": "product_plan",
+      "expected_event_type": "product_plan",
+      "predicted_risk_level": "medium",
+      "expected_risk_level": "medium",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "crm_guidance",
+      "predicted_tickers": [
+        "CRM"
+      ],
+      "expected_tickers": [
+        "CRM"
+      ],
+      "predicted_event_type": "earnings",
+      "expected_event_type": "earnings",
+      "predicted_risk_level": "high",
+      "expected_risk_level": "high",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "jpm_capital",
+      "predicted_tickers": [
+        "JPM"
+      ],
+      "expected_tickers": [
+        "JPM"
+      ],
+      "predicted_event_type": "capital_return",
+      "expected_event_type": "capital_return",
+      "predicted_risk_level": "low",
+      "expected_risk_level": "low",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "pfe_trial",
+      "predicted_tickers": [
+        "PFE"
+      ],
+      "expected_tickers": [
+        "PFE"
+      ],
+      "predicted_event_type": "clinical_trial",
+      "expected_event_type": "clinical_trial",
+      "predicted_risk_level": "high",
+      "expected_risk_level": "high",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "wmt_consumer",
+      "predicted_tickers": [
+        "WMT"
+      ],
+      "expected_tickers": [
+        "WMT"
+      ],
+      "predicted_event_type": "industry_demand",
+      "expected_event_type": "consumer_demand",
+      "predicted_risk_level": "medium",
+      "expected_risk_level": "medium",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "ba_quality",
+      "predicted_tickers": [
+        "BA"
+      ],
+      "expected_tickers": [
+        "BA"
+      ],
+      "predicted_event_type": "operational_risk",
+      "expected_event_type": "operational_risk",
+      "predicted_risk_level": "high",
+      "expected_risk_level": "high",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "xom_refinery",
+      "predicted_tickers": [
+        "XOM"
+      ],
+      "expected_tickers": [
+        "XOM"
+      ],
+      "predicted_event_type": "commodity_supply",
+      "expected_event_type": "commodity_supply",
+      "predicted_risk_level": "medium",
+      "expected_risk_level": "medium",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "nflx_ads",
+      "predicted_tickers": [
+        "NFLX"
+      ],
+      "expected_tickers": [
+        "NFLX"
+      ],
+      "predicted_event_type": "industry_demand",
+      "expected_event_type": "industry_demand",
+      "predicted_risk_level": "low",
+      "expected_risk_level": "low",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    },
+    {
+      "case_id": "sbux_china",
+      "predicted_tickers": [
+        "SBUX"
+      ],
+      "expected_tickers": [
+        "SBUX"
+      ],
+      "predicted_event_type": "competition",
+      "expected_event_type": "competition",
+      "predicted_risk_level": "medium",
+      "expected_risk_level": "medium",
+      "relevance_pass": true,
+      "ticker_pass": true,
+      "risk_pass": true,
+      "faithfulness_pass": true,
+      "compliance_violation": false,
+      "passed": true
+    }
+  ]
+}

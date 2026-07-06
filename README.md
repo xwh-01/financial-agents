@@ -1,66 +1,141 @@
 # Financial Agents
 
-**Watchlist 驱动的 Market Pulse 财经新闻报告生成系统。**
+面向财经新闻的 **Market Intelligence Agentic Workflow**：基于 FastAPI + LangGraph 聚合多源新闻、分析事件影响、生成带证据链的市场观察报告。
 
-财经新闻追踪 → 噪声过滤 → 结构化报告 → 风险提示 → 来源追踪。不构成投资建议。
+本项目是个人学习和作品集项目，重点展示可解释 workflow、合规边界、证据链、trace 和 offline eval。它不是自动荐股系统，不做量化交易，不输出买卖建议，也不是生产级投研系统。
 
-## 主链路
+## What It Does
 
+- 从 News API、RSS、市场数据接口收集候选新闻。
+- 使用 LangGraph 串联 `collect_news -> rank_news -> analyze_items -> risk_route -> risk_review -> generate_report`。
+- 输出 `market_signals`，每条包含 `supporting_articles`、风险原因、不确定性和证据摘要。
+- 保留 legacy endpoints 和 legacy `recommendations` 字段，仅用于兼容，不作为推荐 demo 入口。
+- 最终报告包含合规 disclaimer：本报告仅用于信息整理和研究参考，不构成投资建议。
+
+```mermaid
+flowchart LR
+  A[News / RSS / Market Data] --> B[collect_news]
+  B --> C[rank_news]
+  C --> D[analyze_items]
+  D --> E[risk_route]
+  E --> F[risk_review]
+  E --> G[generate_report]
+  F --> G
+  G --> H[save_report]
+  H --> I[frontend dashboard]
 ```
-登录/注册 → 创建 Watchlist → 选择关注项（9个板块/90+预设/搜索/推荐组合）
-         → 用户点击生成今日报告，底层由 report job 创建并执行，生成后进入报告详情页
-         → LangGraph Market Pulse 分析 → 保存报告 + report_items
-         → 查看 Report Detail（disclaimer / compliance / source URL）
-```
 
-说明：Report Job 仍然是底层任务模型，Jobs 页面用于状态查看和调试。
+## Safety And Secrets
 
-## 快速启动
+- Do not commit `.env` or real API keys.
+- `.env.example` files contain placeholders only.
+- If a real key was ever committed, rotate it in the provider console.
+- `.gitignore` ignores `.env`, `*.env`, `agent-python/.env`, `__pycache__/`, `.pytest_cache/`, and `.coverage`.
+
+## Quick Start
 
 ```powershell
-# 终端 1 — 后端
+# 1. Backend env
+copy agent-python\.env.example agent-python\.env
+# Edit placeholders in agent-python\.env if you want real external APIs.
+
+# 2. Install backend dependencies
 cd agent-python
+python -m venv .venv
 .\.venv\Scripts\activate
+pip install -r requirements.txt
+
+# 3. Start FastAPI
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8010
 
-# 终端 2 — 前端
-cd frontend
+# 4. Frontend
+cd ..\frontend
 python -m http.server 5173
-# 浏览器 http://127.0.0.1:5173
+# Open http://127.0.0.1:5173
 ```
 
-Docker 部署见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+Default backend port: `8010`.
 
-## 验证命令
+Recommended LangGraph API:
 
 ```powershell
-# 编译检查
-python -m compileall agent-python
-
-# 冒烟测试（全链路）
-$env:BASE_URL = "http://127.0.0.1:8010"
-python agent-python/scripts/smoke_test.py --daily-job-check
-
-# Ranker 评估
-cd agent-python && python evals/ranker_eval.py
-
-# 合规检查
-cd agent-python && python scripts/check_report_guard.py
-
-# 新闻质量
-cd agent-python && python scripts/check_news_quality.py
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8010/api/agent/market-pulse/langgraph `
+  -ContentType "application/json" `
+  -Body '{"query":"NVIDIA AI chips","max_items":5,"tickers":["NVDA"]}'
 ```
 
-## 技术栈
+## Demo Flow
 
-- **后端**: FastAPI + LangGraph + SQLite + asyncio
-- **前端**: 纯 HTML/CSS/JS（无框架，无构建）
-- **部署**: Docker Compose（可选）
-- **不依赖**: Redis / Celery / Kafka / PostgreSQL
+1. Register or login in the frontend.
+2. Create a Watchlist and add ticker/topic/macro items.
+3. Click “生成今日报告”.
+4. Open the report detail page.
+5. Review `market_signals`.
+6. Expand each signal to inspect `supporting_articles`.
+7. Check risk observation, uncertainty, source URL, and compliance status.
+8. Run offline eval and inspect trace JSON.
 
-## 更多文档
+## Eval
 
-- 主链路验收: [docs/main_workflow_acceptance.md](docs/main_workflow_acceptance.md)
-- 部署指南: [DEPLOYMENT.md](DEPLOYMENT.md)
-- 前端说明: [frontend/README.md](frontend/README.md)
-- 后端详情: [agent-python/README.md](agent-python/README.md)
+Offline benchmark is deterministic and does not require real API keys.
+
+```powershell
+python evals/run_eval.py
+```
+
+Outputs:
+
+- `evals/report.md`
+- `evals/report.json`
+
+Metrics include:
+
+- `relevance_at_5`
+- `ticker_linking_accuracy`
+- `risk_label_accuracy`
+- `faithfulness_pass_rate`
+- `compliance_violation_rate`
+- `avg_latency_ms`
+- `total_cases`
+- `passed_cases`
+- `failed_cases`
+
+## Trace
+
+Every LangGraph run creates a `trace_id`. The final API response includes:
+
+- `trace_id`
+- `trace_events`
+- `trace_path`
+
+Trace JSON is written under:
+
+```text
+agent-python/storage/langgraph_traces/{trace_id}.json
+```
+
+Each node trace records `node_name`, `start_time`, `end_time`, `duration_ms`, `input_count`, `output_count`, `error_code`, `error_message`, and `retry_count`.
+
+## Validation
+
+```powershell
+python -m compileall agent-python
+pytest
+python evals/run_eval.py
+```
+
+## Legacy / Compatibility Only
+
+These endpoints remain available for older demos or debugging, but the recommended portfolio path is `POST /api/agent/market-pulse/langgraph`.
+
+- `POST /agent/analyze`
+- `POST /agent/batch-analyze-news`
+- `POST /agent/daily-brief`
+- `POST /agent/market-pulse`
+- `POST /api/market-pulse/agent-run`
+
+## Compliance Statement
+
+本项目仅用于公开信息整理、研究参考和工程能力展示，不构成投资建议、买卖建议、收益承诺或自动交易依据。

@@ -11,17 +11,18 @@ from market_pulse.nodes.risk_review import (
     route_after_risk,
 )
 from market_pulse.state import MarketPulseGraphState
+from market_pulse.trace import new_trace_id, save_trace, trace_node
 
 
 def _build_langgraph_market_pulse():
     graph = StateGraph(MarketPulseGraphState)
 
-    graph.add_node("collect_news", collect_news_node)
-    graph.add_node("rank_news", rank_news_node)
-    graph.add_node("analyze_items", analyze_items_node)
-    graph.add_node("risk_route", risk_route_node)
-    graph.add_node("risk_review", risk_review_node)
-    graph.add_node("generate_report", generate_report_node)
+    graph.add_node("collect_news", trace_node("collect_news", collect_news_node))
+    graph.add_node("rank_news", trace_node("rank_news", rank_news_node))
+    graph.add_node("analyze_items", trace_node("analyze_items", analyze_items_node))
+    graph.add_node("risk_route", trace_node("risk_route", risk_route_node))
+    graph.add_node("risk_review", trace_node("risk_review", risk_review_node))
+    graph.add_node("generate_report", trace_node("generate_report", generate_report_node))
 
     graph.add_edge(START, "collect_news")
     graph.add_edge("collect_news", "rank_news")
@@ -46,15 +47,24 @@ langgraph_market_pulse = _build_langgraph_market_pulse()
 
 async def run_langgraph_market_pulse(query: str, max_items: int = 8, tickers: list[str] | None = None) -> dict:
     try:
+        trace_id = new_trace_id()
         final_state = await langgraph_market_pulse.ainvoke(
             {
+                "trace_id": trace_id,
+                "trace_events": [],
                 "query": query,
                 "max_items": max_items,
                 "tickers": tickers or [],
                 "error_message": None,
             }
         )
-        return final_state["result"]
+        result = dict(final_state["result"])
+        trace_events = list(final_state.get("trace_events") or [])
+        trace_path = save_trace(trace_id, trace_events)
+        result["trace_id"] = trace_id
+        result["trace_events"] = trace_events
+        result["trace_path"] = trace_path
+        return result
 
     except ExternalServiceError:
         raise

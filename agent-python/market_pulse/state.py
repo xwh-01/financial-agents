@@ -14,5 +14,7 @@ class MarketPulseGraphState(TypedDict, total=False):
     completed_results: list[WorkflowResult]
     overall_risk_level: str
     risk_review_notes: list[str]
+    trace_id: str
+    trace_events: list[dict[str, Any]]
     result: dict[str, Any]
     error_message: str | None

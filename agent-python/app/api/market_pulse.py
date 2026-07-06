@@ -7,6 +7,8 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from market_pulse.agent.runner import MarketPulseAgentRunner
+from market_pulse.agent.trace_store import load_trace
 from market_pulse.schemas import (
     AnalyzeRequest,
     BatchAnalyzeNewsRequest,
@@ -34,6 +36,13 @@ router = APIRouter()
 class LangGraphMarketPulseRequest(BaseModel):
     query: str
     max_items: int = 8
+    tickers: list[str] = []
+
+
+class AgentRunRequest(BaseModel):
+    query: str
+    max_items: int = 8
+    tickers: list[str] = []
 
 
 @router.post("/agent/analyze")
@@ -75,9 +84,40 @@ async def langgraph_market_pulse_route(request: LangGraphMarketPulseRequest):
     result = await run_langgraph_market_pulse(
         query=request.query,
         max_items=request.max_items,
+        tickers=request.tickers,
     )
 
     return JSONResponse(
         content=result,
+        media_type="application/json; charset=utf-8",
+    )
+
+
+@router.post("/api/market-pulse/agent-run")
+async def market_pulse_agent_run_route(request: AgentRunRequest):
+    trace = await MarketPulseAgentRunner().run(
+        query=request.query,
+        max_items=request.max_items,
+        tickers=request.tickers,
+    )
+
+    return JSONResponse(
+        content=trace.model_dump(),
+        media_type="application/json; charset=utf-8",
+    )
+
+
+@router.get("/api/agent-traces/{trace_id}")
+async def get_agent_trace_route(trace_id: str):
+    trace = load_trace(trace_id)
+    if trace is None:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": "Agent trace not found"},
+            media_type="application/json; charset=utf-8",
+        )
+
+    return JSONResponse(
+        content=trace.model_dump(),
         media_type="application/json; charset=utf-8",
     )

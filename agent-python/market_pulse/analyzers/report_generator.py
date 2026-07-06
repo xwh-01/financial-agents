@@ -9,8 +9,10 @@ from market_pulse.schemas import (
     EventResult,
     FinancialRecommendation,
     MarketMetrics,
+    MarketSignal,
     ReportResult,
     RiskResult,
+    SupportingArticle,
     TickerLinks,
     TickerTrend,
     WorkflowResult,
@@ -423,7 +425,10 @@ def _build_news_evidence(
                 "title": news.title or "Untitled news",
                 "url": news.url or "",
                 "source": news.source or news.provider or "",
+                "published_at": news.published_at or "",
+                "relevance_score": news.relevance_score or 0.0,
                 "reason": _build_news_reason(analysis),
+                "event_type": analysis.event_result.event_type if analysis.event_result else "unknown",
             }
         )
 
@@ -802,20 +807,22 @@ def build_market_pulse_report(
 def build_financial_recommendations(
     trends: list[TickerTrend],
 ) -> list[FinancialRecommendation]:
+    # Legacy compatibility only. New report and frontend surfaces should use
+    # market_signals instead of recommendations.
     recommendations: list[FinancialRecommendation] = []
 
     for trend in trends:
         if trend.risk_level == "high":
-            recommendation_type = "风险预警"
+            recommendation_type = "风险观察"
             time_window = "1-3 个交易日"
         elif trend.direction == "偏正面" and trend.confidence >= 0.55:
-            recommendation_type = "推荐关注"
+            recommendation_type = "市场观察信号"
             time_window = "1-5 个交易日"
         elif trend.direction == "偏负面":
             recommendation_type = "谨慎观察"
             time_window = "1-5 个交易日"
         else:
-            recommendation_type = "加入观察列表"
+            recommendation_type = "观察列表"
             time_window = "3-10 个交易日"
 
         recommendations.append(
@@ -833,6 +840,129 @@ def build_financial_recommendations(
         )
 
     return recommendations
+
+
+def build_market_signals(
+    trends: list[TickerTrend],
+    analyzed_news: list[DailyNewsAnalysis] | None = None,
+) -> list[MarketSignal]:
+    evidence_items = _build_news_evidence(analyzed_news or [])
+    signals: list[MarketSignal] = []
+
+    for idx, trend in enumerate(trends[:10], start=1):
+        matched_evidence = _match_news_evidence(trend.ticker, evidence_items)[:3]
+        supporting_articles = [
+            SupportingArticle(
+                title=str(evidence.get("title") or ""),
+                source=str(evidence.get("source") or ""),
+                url=str(evidence.get("url") or ""),
+                published_at=str(evidence.get("published_at") or ""),
+                reason=str(evidence.get("reason") or ""),
+                relevance_score=float(evidence.get("relevance_score") or 0.0),
+            )
+            for evidence in matched_evidence
+        ]
+
+        incomplete = [
+            field
+            for article in supporting_articles
+            for field in ("source", "url", "published_at")
+            if not getattr(article, field)
+        ]
+        uncertainty = _signal_uncertainty(trend, supporting_articles, bool(incomplete))
+        risk_reason = (
+            "；".join(trend.risk_flags[:4])
+            if trend.risk_flags
+            else "未识别到突出的结构化风险标记。"
+        )
+
+        signals.append(
+            MarketSignal(
+                signal_id=f"signal-{idx:03d}-{trend.ticker}",
+                title=f"{trend.ticker} 市场观察信号",
+                summary=_build_signal_summary(trend),
+                event_type=_infer_signal_event_type(trend, matched_evidence),
+                risk_level=trend.risk_level,
+                confidence=trend.confidence,
+                related_tickers=[trend.ticker],
+                entity_linking_reason=_build_entity_linking_reason(trend, matched_evidence),
+                risk_reason=risk_reason,
+                uncertainty=uncertainty,
+                evidence_summary=_build_evidence_summary(trend, supporting_articles),
+                supporting_articles=supporting_articles,
+                signal_type="risk_observation" if trend.risk_level == "high" else "market_signal",
+            )
+        )
+
+    return signals
+
+
+def build_market_signal_report(
+    market_signals: list[MarketSignal],
+) -> str:
+    generated_at = _generated_time_label()
+    if not market_signals:
+        return "\n".join(
+            [
+                "Market Pulse 财经新闻简报",
+                "",
+                f"生成时间：{generated_at}",
+                "",
+                "一、核心结论",
+                "本次实时市场新闻扫描没有形成足够明确、可追溯的市场观察信号。",
+                "",
+                "二、不确定性说明",
+                "可能原因包括候选新闻相关性不足、新闻数量较少，或当前过滤阈值较高。",
+                "",
+                "三、免责声明",
+                "本报告仅用于信息整理和研究参考，不构成投资建议。",
+            ]
+        )
+
+    lines = [
+        "Market Pulse 财经新闻简报",
+        "",
+        f"生成时间：{generated_at}",
+        "",
+        "一、核心结论",
+        f"本次扫描形成 {len(market_signals)} 条市场观察信号，均附带新闻证据链和不确定性说明。",
+        "",
+        "二、市场观察信号",
+    ]
+
+    for idx, signal in enumerate(market_signals[:8], start=1):
+        tickers = "、".join(signal.related_tickers) or "未识别"
+        lines.extend(
+            [
+                "",
+                f"{idx}. {signal.title}",
+                f"相关标的：{tickers}",
+                f"事件类型：{signal.event_type}",
+                f"风险等级：{signal.risk_level}，置信度：{signal.confidence:.2f}",
+                f"证据摘要：{signal.evidence_summary}",
+                f"关联理由：{signal.entity_linking_reason}",
+                f"风险原因：{signal.risk_reason}",
+                f"不确定性：{signal.uncertainty}",
+            ]
+        )
+        if signal.supporting_articles:
+            lines.append("相关来源：")
+            for article in signal.supporting_articles[:3]:
+                source = article.source or "unknown source"
+                url = article.url or "no url"
+                lines.append(f"- {article.title} | {source} | {url}")
+
+    lines.extend(
+        [
+            "",
+            "三、使用边界",
+            "以上内容基于公开新闻、事件分类、风险标记和来源证据生成，只能作为研究参考。",
+            "",
+            "四、免责声明",
+            "本报告仅用于信息整理和研究参考，不构成投资建议。",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _direction_from_score(score: float) -> str:
@@ -853,6 +983,74 @@ def _build_recommendation_rationale(trend: TickerTrend) -> str:
         f"{trend.ticker} 在最新新闻流中出现 {trend.news_count} 条相关信号，"
         f"综合判断为{trend.direction}。" + confirmation
     )
+
+
+def _build_signal_summary(trend: TickerTrend) -> str:
+    reason = trend.reasons[0] if trend.reasons else "公开新闻中出现相关事件线索。"
+    return (
+        f"{trend.ticker} 出现{trend.direction}的市场观察信号，"
+        f"影响强度 {trend.impact_score:.2f}，关联新闻 {trend.news_count} 条。{reason}"
+    )
+
+
+def _infer_signal_event_type(
+    trend: TickerTrend,
+    evidence_items: list[dict[str, object]],
+) -> str:
+    event_types = [
+        str(item.get("event_type") or "")
+        for item in evidence_items
+        if trend.ticker in (item.get("tickers") or set())
+    ]
+    for event_type in event_types:
+        if event_type and event_type != "unknown":
+            return event_type
+    return "unknown"
+
+
+def _build_entity_linking_reason(
+    trend: TickerTrend,
+    evidence_items: list[dict[str, object]],
+) -> str:
+    if evidence_items:
+        return (
+            f"{trend.ticker} 来自新闻标题、正文或分析阶段的 ticker/entity linking；"
+            f"本轮匹配到 {len(evidence_items)} 条支持来源。"
+        )
+    return (
+        f"{trend.ticker} 来自结构化分析结果，但本轮没有保留可展开的新闻来源，"
+        "需要人工复核关联关系。"
+    )
+
+
+def _build_evidence_summary(
+    trend: TickerTrend,
+    articles: list[SupportingArticle],
+) -> str:
+    if not articles:
+        return "当前信号缺少可展开来源，只能作为低可信度研究线索。"
+    titles = "；".join(article.title for article in articles[:2] if article.title)
+    return (
+        f"该信号由 {len(articles)} 条新闻支持。"
+        f"{'代表性来源：' + titles if titles else ''}"
+    )
+
+
+def _signal_uncertainty(
+    trend: TickerTrend,
+    articles: list[SupportingArticle],
+    has_incomplete_source: bool,
+) -> str:
+    notes: list[str] = []
+    if trend.confidence < 0.55:
+        notes.append("模型置信度偏低，需要后续新闻或市场数据确认")
+    if not articles:
+        notes.append("缺少可追溯 supporting_articles")
+    if has_incomplete_source:
+        notes.append("部分来源缺少 source/url/published_at 字段")
+    if trend.market_confirmation.startswith("未见") or "未配置" in trend.market_confirmation:
+        notes.append("行情确认信号不足或未配置行情数据")
+    return "；".join(notes) if notes else "仍需结合后续公告、价格和成交量变化复核。"
 
 
 def _build_final_wind_summary(recommendations: list[FinancialRecommendation]) -> str:

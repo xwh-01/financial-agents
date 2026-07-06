@@ -209,6 +209,32 @@ class FinancialRecommendation(BaseModel):
     risk_flags: list[str] = Field(default_factory=list)
 
 
+class SupportingArticle(BaseModel):
+    title: str = ""
+    source: str = ""
+    url: str = ""
+    published_at: str = ""
+    reason: str = ""
+    relevance_score: float = 0.0
+
+
+class MarketSignal(BaseModel):
+    signal_id: str
+    title: str
+    summary: str
+    event_type: str = "unknown"
+    risk_level: str = "low"
+    confidence: float = 0.0
+    related_tickers: list[str] = Field(default_factory=list)
+    entity_linking_reason: str = ""
+    risk_reason: str = ""
+    uncertainty: str = ""
+    evidence_summary: str = ""
+    supporting_articles: list[SupportingArticle] = Field(default_factory=list)
+    signal_type: str = "market_signal"
+    compliance_violation: bool = False
+
+
 class MarketPulseResponse(BaseModel):
     status: str
     total_news: int
@@ -217,6 +243,8 @@ class MarketPulseResponse(BaseModel):
     analyzed_news_count: int = 0
     analyzed_news: list[DailyNewsAnalysis] = Field(default_factory=list)
     trends: list[TickerTrend] = Field(default_factory=list)
+    market_signals: list[MarketSignal] = Field(default_factory=list)
+    # Legacy compatibility only. New frontend/report surfaces should use market_signals.
     recommendations: list[FinancialRecommendation] = Field(default_factory=list)
     report: str = ""
     error_message: str | None = None

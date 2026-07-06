@@ -1,7 +1,6 @@
-import httpx
-
 from app.config import settings
 from app.errors import ExternalServiceNotConfigured, ExternalServiceError
+from clients.retry import get_json_with_retry
 
 
 async def fetch_market_history(ticker: str) -> list[dict]:
@@ -31,10 +30,14 @@ async def fetch_market_history(ticker: str) -> list[dict]:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(settings.market_base_url, params=params)
-            resp.raise_for_status()
-            data = resp.json()
+        data = await get_json_with_retry(
+            settings.market_base_url,
+            params=params,
+            timeout=settings.llm_timeout_seconds,
+            max_retries=settings.llm_retry_attempts,
+            backoff_seconds=settings.llm_retry_backoff_seconds,
+            error_type="market_data_failed",
+        )
 
         return normalize_market_data(data)
 

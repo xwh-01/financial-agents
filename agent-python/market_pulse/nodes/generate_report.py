@@ -1,22 +1,26 @@
 from market_pulse.analyzers.report_generator import (
+    build_market_signal_report,
+    build_market_signals,
     build_financial_recommendations,
-    build_market_pulse_report,
     predict_ticker_trends,
 )
 from datetime import datetime, timezone
 from market_pulse.repository import save_market_pulse_report
 from market_pulse.state import MarketPulseGraphState
+from safety.compliance import apply_output_compliance_guard
 
 
 def generate_report_node(
     state: MarketPulseGraphState,
 ) -> MarketPulseGraphState:
-    """Assemble trends, recommendations, and the final report payload."""
+    """Assemble market signals, legacy recommendations, and final report payload."""
     print("[langgraph-market] generate_report")
     analyzed_news = state.get("analyzed_news", [])
     trends = predict_ticker_trends(state.get("completed_results", []))
+    market_signals = build_market_signals(trends, analyzed_news)
+    report = build_market_signal_report(market_signals)
+    # Legacy compatibility only. New frontend/report surfaces should use market_signals.
     recommendations = build_financial_recommendations(trends)
-    report = build_market_pulse_report(trends, recommendations, analyzed_news)
     risk_review_notes = state.get("risk_review_notes", [])
 
     if risk_review_notes:
@@ -40,10 +44,12 @@ def generate_report_node(
         "risk_review_notes": risk_review_notes,
         "analyzed_news": [item.model_dump() for item in analyzed_news],
         "trends": [item.model_dump() for item in trends],
+        "market_signals": [item.model_dump() for item in market_signals],
         "recommendations": [item.model_dump() for item in recommendations],
         "report": report,
         "error_message": None,
     }
+    result = apply_output_compliance_guard(result)
 
     result["report_id"] = _save_result_report(result)
 
