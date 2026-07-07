@@ -205,7 +205,7 @@ var App = (function () {
       await new Promise(function (resolve) { setTimeout(resolve, delay); });
       var latest = await API.jobs.get(jobId);
       var st = latest.status || "";
-      if (st === "succeeded" || st === "failed" || st === "dead") return latest;
+      if (st === "succeeded" || st === "failed" || st === "dead" || st === "cancelled") return latest;
       delay = Math.min(3500, delay + 250);
     }
     return API.jobs.get(jobId);

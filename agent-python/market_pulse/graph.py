@@ -45,19 +45,27 @@ def _build_langgraph_market_pulse():
 langgraph_market_pulse = _build_langgraph_market_pulse()
 
 
-async def run_langgraph_market_pulse(query: str, max_items: int = 8, tickers: list[str] | None = None) -> dict:
+async def run_langgraph_market_pulse(
+    query: str,
+    max_items: int = 8,
+    tickers: list[str] | None = None,
+    report_job_id: int | None = None,
+    report_trace_id: int | None = None,
+) -> dict:
     try:
         trace_id = new_trace_id()
-        final_state = await langgraph_market_pulse.ainvoke(
-            {
-                "trace_id": trace_id,
-                "trace_events": [],
-                "query": query,
-                "max_items": max_items,
-                "tickers": tickers or [],
-                "error_message": None,
-            }
-        )
+        initial_state = {
+            "trace_id": trace_id,
+            "trace_events": [],
+            "query": query,
+            "max_items": max_items,
+            "tickers": tickers or [],
+            "error_message": None,
+        }
+        if report_job_id is not None and report_trace_id is not None:
+            initial_state["report_job_id"] = report_job_id
+            initial_state["report_trace_id"] = report_trace_id
+        final_state = await langgraph_market_pulse.ainvoke(initial_state)
         result = dict(final_state["result"])
         trace_events = list(final_state.get("trace_events") or [])
         trace_path = save_trace(trace_id, trace_events)

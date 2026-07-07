@@ -1,6 +1,9 @@
 from fastapi import HTTPException
 
+from market_pulse.trace import REPORT_STEP_ORDER
 from market_pulse.service import run_langgraph_market_pulse
+from report_jobs import repository as job_repository
+from report_jobs import trace_repository
 from reports.service import save_watchlist_report
 from storage import watchlist_store
 
@@ -78,6 +81,8 @@ async def generate_watchlist_report(
     user_id: int,
     watchlist_id: int,
     max_items: int = 8,
+    report_job_id: int | None = None,
+    report_trace_id: int | None = None,
 ) -> tuple[int, dict]:
     watchlist, items = get_owned_watchlist_with_items(
         user_id=user_id,
@@ -91,15 +96,88 @@ async def generate_watchlist_report(
         if item.get("item_type") == "ticker" and item.get("symbol", "").strip()
     })
 
-    result = await run_langgraph_market_pulse(query=query, max_items=max_items, tickers=tickers)
-    report_id = save_watchlist_report(
-        user_id=user_id,
-        watchlist_id=watchlist_id,
-        title=f"{watchlist['name']} Market Pulse",
+    result = await run_langgraph_market_pulse(
         query=query,
-        result=result,
+        max_items=max_items,
+        tickers=tickers,
+        report_job_id=report_job_id,
+        report_trace_id=report_trace_id,
+    )
+    _record_job_step(
+        report_job_id=report_job_id,
+        report_trace_id=report_trace_id,
+        step_name="compliance_guard",
+        input_count=1,
+        output_count=1,
+        metadata={
+            "guard": "reports.service.apply_report_guard",
+            "applied_during": "save_report",
+        },
+    )
+    report_id = _record_job_step(
+        report_job_id=report_job_id,
+        report_trace_id=report_trace_id,
+        step_name="save_report",
+        input_count=1,
+        output_count=1,
+        metadata={"report_type": "watchlist"},
+        fn=lambda: save_watchlist_report(
+            user_id=user_id,
+            watchlist_id=watchlist_id,
+            title=f"{watchlist['name']} Market Pulse",
+            query=query,
+            result=result,
+        ),
     )
     result["report_id"] = report_id
     result["user_id"] = user_id
     result["watchlist_id"] = watchlist_id
     return report_id, result
+
+
+def _record_job_step(
+    report_job_id: int | None,
+    report_trace_id: int | None,
+    step_name: str,
+    input_count: int,
+    output_count: int | None,
+    metadata: dict | None = None,
+    fn=None,
+):
+    if report_job_id is None or report_trace_id is None:
+        return fn() if fn else None
+
+    if job_repository.is_cancel_requested(report_job_id):
+        raise RuntimeError("cancelled by user")
+
+    job_repository.update_job_progress(
+        job_id=report_job_id,
+        current_step=step_name,
+        progress_current=REPORT_STEP_ORDER.get(step_name, 0),
+        progress_total=len(REPORT_STEP_ORDER),
+    )
+    step_id = trace_repository.start_step(
+        trace_id=report_trace_id,
+        job_id=report_job_id,
+        step_name=step_name,
+        metadata=metadata,
+    )
+    try:
+        result = fn() if fn else None
+        trace_repository.finish_step(
+            step_id=step_id,
+            status=trace_repository.SUCCEEDED,
+            input_count=input_count,
+            output_count=output_count,
+            metadata=metadata,
+        )
+        return result
+    except Exception as exc:
+        trace_repository.finish_step(
+            step_id=step_id,
+            status=trace_repository.FAILED,
+            input_count=input_count,
+            error=str(exc),
+            metadata=metadata,
+        )
+        raise

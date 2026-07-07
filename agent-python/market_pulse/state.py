@@ -16,5 +16,7 @@ class MarketPulseGraphState(TypedDict, total=False):
     risk_review_notes: list[str]
     trace_id: str
     trace_events: list[dict[str, Any]]
+    report_job_id: int
+    report_trace_id: int
     result: dict[str, Any]
     error_message: str | None

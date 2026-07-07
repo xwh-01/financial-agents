@@ -4,10 +4,13 @@ from auth.dependencies import get_current_user
 from auth.schemas import UserResponse
 from report_jobs.schemas import CreateReportJobRequest, ReportJobResponse
 from report_jobs.service import (
+    cancel_user_job,
     create_daily_jobs_for_user,
     create_manual_job_for_watchlist,
+    get_trace_for_user_job,
     get_user_job,
     list_user_jobs,
+    retry_user_job,
     run_job,
 )
 from report_jobs.worker import run_pending_jobs_once
@@ -64,6 +67,39 @@ async def run_report_job_route(
     if job is None:
         raise HTTPException(status_code=404, detail="Report job not found")
     return await run_job(job_id)
+
+
+@router.post("/api/report-jobs/{job_id}/cancel", response_model=ReportJobResponse)
+async def cancel_report_job_route(
+    job_id: int,
+    current_user: UserResponse = Depends(get_current_user),
+):
+    job = cancel_user_job(user_id=current_user.id, job_id=job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Report job not found")
+    return job
+
+
+@router.post("/api/report-jobs/{job_id}/retry", response_model=ReportJobResponse)
+async def retry_report_job_route(
+    job_id: int,
+    current_user: UserResponse = Depends(get_current_user),
+):
+    job = retry_user_job(user_id=current_user.id, job_id=job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Report job not found")
+    return job
+
+
+@router.get("/api/report-jobs/{job_id}/trace")
+async def get_report_job_trace_route(
+    job_id: int,
+    current_user: UserResponse = Depends(get_current_user),
+):
+    payload = get_trace_for_user_job(user_id=current_user.id, job_id=job_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Report trace not found")
+    return payload
 
 
 @router.post("/api/report-jobs/run-pending-once")

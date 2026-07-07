@@ -118,6 +118,65 @@ agent-python/storage/langgraph_traces/{trace_id}.json
 
 Each node trace records `node_name`, `start_time`, `end_time`, `duration_ms`, `input_count`, `output_count`, `error_code`, `error_message`, and `retry_count`.
 
+## Report Job & Trace
+
+Report generation runs as a background job so the UI and API can show progress, retry failed work, and inspect what happened after a run finishes. This is still the same FastAPI + LangGraph + SQLite architecture; it does not use Redis, Celery, Kafka, or PostgreSQL.
+
+Job status flow:
+
+```text
+pending -> running -> succeeded
+pending -> running -> failed
+failed -> dead
+pending/running -> cancelled
+```
+
+Each report job can now point to a database-backed report trace. A full trace records these steps when applicable:
+
+```text
+collect_news -> rank_news -> analyze_items -> risk_route -> risk_review -> generate_report -> compliance_guard -> save_report
+```
+
+`risk_review` is still recorded when skipped, with `metadata.skipped=true`. Each step stores status, timing, input/output counts, error text, and JSON metadata. User-facing reports must keep the compliance disclaimer and remain market observations, risk observations, evidence summaries, and research references only; they are not investment advice.
+
+Progress and trace APIs:
+
+```powershell
+# Query job progress
+Invoke-RestMethod -Headers @{Authorization="Bearer <token>"} `
+  -Uri http://127.0.0.1:8010/api/report-jobs/<job_id>
+
+# Cancel a pending/running job
+Invoke-RestMethod -Method Post -Headers @{Authorization="Bearer <token>"} `
+  -Uri http://127.0.0.1:8010/api/report-jobs/<job_id>/cancel
+
+# Retry a failed/dead/cancelled job; returns the new job
+Invoke-RestMethod -Method Post -Headers @{Authorization="Bearer <token>"} `
+  -Uri http://127.0.0.1:8010/api/report-jobs/<job_id>/retry
+
+# Query trace by job
+Invoke-RestMethod -Headers @{Authorization="Bearer <token>"} `
+  -Uri http://127.0.0.1:8010/api/report-jobs/<job_id>/trace
+
+# Query trace by report
+Invoke-RestMethod -Headers @{Authorization="Bearer <token>"} `
+  -Uri http://127.0.0.1:8010/api/reports/<report_id>/trace
+```
+
+Manual verification:
+
+1. Register/login and create a watchlist with at least one item.
+2. Create a job with `POST /api/watchlists/{watchlist_id}/report-jobs`.
+3. Run it with `POST /api/report-jobs/{job_id}/run` or start the worker.
+4. Poll `GET /api/report-jobs/{job_id}` until `status=succeeded`.
+5. Open `GET /api/report-jobs/{job_id}/trace` and verify step statuses, durations, counts, metadata, and errors.
+
+Tests:
+
+```powershell
+pytest
+```
+
 ## Validation
 
 ```powershell

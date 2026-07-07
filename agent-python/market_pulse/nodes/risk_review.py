@@ -1,6 +1,7 @@
 from typing import Literal
 
 from market_pulse.state import MarketPulseGraphState
+from market_pulse.trace import record_skipped_report_step
 
 
 def risk_route_node(
@@ -16,6 +17,7 @@ def route_after_risk(
 ) -> Literal["risk_review", "generate_report"]:
     if state.get("overall_risk_level") == "high":
         return "risk_review"
+    record_skipped_report_step(state, "risk_review", "overall_risk_level was not high")
     return "generate_report"
 
 

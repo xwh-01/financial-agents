@@ -68,6 +68,9 @@ var API = (function () {
       },
       get: function (id) { return request("GET", "/api/report-jobs/" + id); },
       run: function (id) { return request("POST", "/api/report-jobs/" + id + "/run"); },
+      cancel: function (id) { return request("POST", "/api/report-jobs/" + id + "/cancel"); },
+      retry: function (id) { return request("POST", "/api/report-jobs/" + id + "/retry"); },
+      trace: function (id) { return request("GET", "/api/report-jobs/" + id + "/trace"); },
     },
 
     opportunities: {
@@ -99,6 +102,7 @@ var API = (function () {
       },
       get: function (id) { return request("GET", "/api/reports/" + id); },
       items: function (id) { return request("GET", "/api/reports/" + id + "/items"); },
+      trace: function (id) { return request("GET", "/api/reports/" + id + "/trace"); },
     },
   };
 })();

@@ -465,11 +465,15 @@ async def run_langgraph_market_pulse(
     query: str,
     max_items: int = 8,
     tickers: list[str] | None = None,
+    report_job_id: int | None = None,
+    report_trace_id: int | None = None,
 ) -> dict:
     return await _run_langgraph_market_pulse(
         query=query,
         max_items=max_items,
         tickers=tickers,
+        report_job_id=report_job_id,
+        report_trace_id=report_trace_id,
     )
 
 

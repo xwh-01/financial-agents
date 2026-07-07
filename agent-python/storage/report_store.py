@@ -129,6 +129,49 @@ def init_db() -> None:
             )
             """
         )
+        _ensure_report_jobs_columns(conn)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS report_traces (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id INTEGER NOT NULL,
+                report_id INTEGER,
+                watchlist_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'running',
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                total_duration_ms INTEGER,
+                error TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (job_id) REFERENCES report_jobs(id),
+                FOREIGN KEY (report_id) REFERENCES reports(id),
+                FOREIGN KEY (watchlist_id) REFERENCES watchlists(id),
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS report_trace_steps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trace_id INTEGER NOT NULL,
+                job_id INTEGER NOT NULL,
+                step_name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'running',
+                input_count INTEGER,
+                output_count INTEGER,
+                duration_ms INTEGER,
+                error TEXT,
+                metadata_json TEXT,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (trace_id) REFERENCES report_traces(id),
+                FOREIGN KEY (job_id) REFERENCES report_jobs(id)
+            )
+            """
+        )
         _ensure_indexes(conn)
         conn.commit()
 
@@ -257,6 +300,18 @@ def _ensure_indexes(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_report_jobs_watchlist_status
         ON report_jobs(watchlist_id, status)
         """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_report_traces_job_id
+        ON report_traces(job_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_report_traces_report_id
+        ON report_traces(report_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_report_trace_steps_trace_id
+        ON report_trace_steps(trace_id, id)
+        """,
     ]
     for statement in indexes:
         conn.execute(statement)
@@ -293,6 +348,26 @@ def _ensure_reports_columns(conn: sqlite3.Connection) -> None:
     for name, definition in columns.items():
         if name not in existing:
             conn.execute(f"ALTER TABLE reports ADD COLUMN {name} {definition}")
+
+
+def _ensure_report_jobs_columns(conn: sqlite3.Connection) -> None:
+    existing = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(report_jobs)").fetchall()
+    }
+    columns = {
+        "current_step": "TEXT",
+        "progress_current": "INTEGER NOT NULL DEFAULT 0",
+        "progress_total": "INTEGER NOT NULL DEFAULT 0",
+        "locked_until": "TEXT",
+        "last_error": "TEXT",
+        "trace_id": "INTEGER",
+        "cancel_requested": "INTEGER NOT NULL DEFAULT 0",
+        "metadata_json": "TEXT",
+    }
+    for name, definition in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE report_jobs ADD COLUMN {name} {definition}")
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:

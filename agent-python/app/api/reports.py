@@ -9,6 +9,7 @@ from reports.service import (
     list_user_reports,
     list_user_reports_today,
 )
+from report_jobs import trace_repository
 
 
 router = APIRouter()
@@ -70,3 +71,25 @@ async def report_items_route(
         raise HTTPException(status_code=404, detail="Report not found")
 
     return items
+
+
+@router.get("/api/reports/{report_id}/trace")
+async def report_trace_route(
+    report_id: int,
+    current_user: UserResponse = Depends(get_current_user),
+):
+    detail = get_user_report_detail(
+        user_id=current_user.id,
+        report_id=report_id,
+    )
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    trace = trace_repository.get_trace_by_report_id(report_id)
+    if trace is None:
+        raise HTTPException(status_code=404, detail="Report trace not found")
+
+    return {
+        "trace": trace,
+        "steps": trace_repository.list_trace_steps(trace["id"]),
+    }
