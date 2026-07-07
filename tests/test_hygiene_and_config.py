@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_env_examples_do_not_contain_real_key_formats():
-    paths = [ROOT / ".env.example", ROOT / "agent-python" / ".env.example"]
+    paths = [ROOT / ".env.example"]
     patterns = [
         re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
         re.compile(r"deepseek-[A-Za-z0-9_-]{20,}", re.IGNORECASE),

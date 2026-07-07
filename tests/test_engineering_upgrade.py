@@ -19,6 +19,13 @@ def test_config_loads_env_values(monkeypatch):
     assert settings.llm_model == "deepseek-test"
 
 
+def test_config_reads_single_root_env_file():
+    from app.config import ENV_FILE
+
+    normalized = str(ENV_FILE).replace("\\", "/")
+    assert normalized.endswith("financial-agents/.env")
+
+
 def test_ranking_service_prioritizes_market_news():
     items = [
         NewsItem(

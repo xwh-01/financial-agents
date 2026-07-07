@@ -145,10 +145,23 @@ MARKET_API_KEY=your_key
 
 ## 环境变量
 
-建议编辑：
+后端只读取一个配置文件：
 
 ```text
-agent-python/.env
+D:\desk top\financial-agents\.env
+```
+
+配置模板也只有一个：
+
+```text
+D:\desk top\financial-agents\.env.example
+```
+
+如果没有 `.env`，先复制：
+
+```powershell
+cd "D:\desk top\financial-agents"
+copy .env.example .env
 ```
 
 DeepSeek：
@@ -187,6 +200,13 @@ TRACE_DIR=traces
 ```
 
 不要提交 `.env` 或真实 API key。
+
+检查配置是否被读取：
+
+```powershell
+cd "D:\desk top\financial-agents\agent-python"
+python scripts/check_config.py
+```
 
 ## Trace 可观测性
 
@@ -263,6 +283,28 @@ python -m http.server 5173
 curl -X POST http://127.0.0.1:8010/api/agent/market-pulse/langgraph ^
   -H "Content-Type: application/json" ^
   -d "{\"query\":\"Nvidia AI chips and Fed inflation risk\",\"max_items\":5,\"tickers\":[\"NVDA\",\"AAPL\"]}"
+```
+
+## 验证行情接口
+
+Alpha Vantage 的 `TIME_SERIES_DAILY` 配置：
+
+```env
+MARKET_BASE_URL=https://www.alphavantage.co/query
+MARKET_API_KEY=your_key
+```
+
+验证配置是否读到：
+
+```powershell
+cd "D:\desk top\financial-agents\agent-python"
+python scripts/check_config.py
+```
+
+验证 `TIME_SERIES_DAILY` 是否连通：
+
+```powershell
+python scripts/check_market_data.py --symbol AAPL
 ```
 
 ## 测试

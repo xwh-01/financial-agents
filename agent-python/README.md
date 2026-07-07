@@ -13,10 +13,21 @@ FastAPI + LangGraph + SQLite 后端。
 ## 启动
 
 ```powershell
+cd "D:\desk top\financial-agents"
+copy .env.example .env   # 只需首次创建，然后填写 API key
+
 cd agent-python
 .\.venv\Scripts\activate
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8010
 ```
+
+配置文件只维护根目录这一份：
+
+```text
+D:\desk top\financial-agents\.env
+```
+
+不要在 `agent-python` 下再维护第二份 `.env`。
 
 ## 核心目录
 
@@ -39,6 +50,8 @@ storage/report_store.py     # SQLite
 ## 验证脚本
 
 ```powershell
+python scripts/check_config.py                   # 检查配置是否读到
+python scripts/check_market_data.py --symbol AAPL # 检查 Alpha Vantage 日线
 python scripts/smoke_test.py --daily-job-check   # 主链路冒烟
 python scripts/check_news_quality.py              # 去重/freshness/source_weight
 python scripts/check_report_guard.py              # 合规扫描
