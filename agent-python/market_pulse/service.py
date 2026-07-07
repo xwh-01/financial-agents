@@ -1,6 +1,6 @@
 import asyncio
 
-from clients.news_client import search_news
+from clients.marketaux_client import search_marketaux_news
 from clients.fin_news_rss import collect_fin_rss_news
 from market_pulse.filters.news_filter import dedupe_news, filter_fresh_news
 from market_pulse.analyzers.report_generator import (
@@ -40,7 +40,7 @@ async def run_single_news_analysis(request: AnalyzeRequest) -> WorkflowResult:
 
 
 async def search_news_items(request: SearchNewsRequest) -> list[NewsItem]:
-    return await search_news(
+    return await search_marketaux_news(
         query=request.query,
         limit=request.limit,
         language=request.language,
@@ -51,7 +51,7 @@ async def search_news_items(request: SearchNewsRequest) -> list[NewsItem]:
 async def run_batch_news_analysis(
     request: BatchAnalyzeNewsRequest,
 ) -> BatchAnalyzeNewsResponse:
-    items = await search_news(
+    items = await search_marketaux_news(
         query=request.query,
         limit=request.limit,
         language=request.language,
@@ -103,7 +103,7 @@ async def run_daily_brief(request: DailyBriefRequest) -> DailyBriefResponse:
     seen_titles = set()
 
     for query in request.queries:
-        items = await search_news(
+        items = await search_marketaux_news(
             query=query,
             limit=request.limit_per_query,
             language=request.language,

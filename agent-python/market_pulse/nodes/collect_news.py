@@ -1,4 +1,4 @@
-from clients.news_client import search_news
+from clients.marketaux_client import search_marketaux_news
 from clients.fin_news_rss import collect_fin_rss_news
 from clients.rss_client import collect_company_market_news
 from market_pulse.filters.news_filter import dedupe_news, filter_fresh_news
@@ -18,7 +18,7 @@ async def collect_news_node(
     if query:
         try:
             candidate_news.extend(
-                await search_news(
+                await search_marketaux_news(
                     query=query,
                     limit=50,
                     language="en",

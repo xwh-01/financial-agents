@@ -61,7 +61,7 @@ python -m http.server 5173
 | 登录后页面空白 | 未刷新 | Ctrl+Shift+R 强制刷新 |
 | 前端连接不上后端 | 后端未启动或端口不同 | 确认 `uvicorn` 在 8010 端口运行 |
 | 搜索/板块不显示 | `presets.js` 缺失 | 确认 `frontend/js/presets.js` 存在且被 `index.html` 引用 |
-| Job 创建后 Run 失败 | News API Key 未配置 | 检查 `.env` 中 `NEWS_API_KEY` |
+| Job 创建后 Run 失败 | Marketaux API Key 未配置或 RSS 源不可用 | 检查 `.env` 中 `MARKETAUX_API_KEY`，同时确认 RSS 源可访问 |
 | Job succeeded 但 report items 为 0 | LangGraph 输出格式与 extract_report_items 不匹配 | 检查后端日志 |
 | 报告详情无 source items 显示 | `report_items` 表未写入 | 确认 `reports/service.py` 的 `save_report_items` 被调用 |
 | CORS 错误 | 后端 CORS 未 Allow | 确认 `CORS_ALLOWED_ORIGINS` 包含前端地址 |

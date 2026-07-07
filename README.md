@@ -8,7 +8,7 @@ Financial Agents 是一个财经新闻脉冲分析 Agent：抓取财经新闻，
 
 ## 核心功能
 
-- 多源财经新闻抓取：Marketaux / NewsAPI / 财经 RSS / 公司与市场 feed
+- 多源财经新闻抓取：Marketaux / 财经 RSS / 公司与市场 feed
 - 高影响新闻筛选：根据 ticker、事件类型、宏观词、风险词、来源权重和新鲜度排序
 - LLM 结构化分析：统一通过 DeepSeek/OpenAI 兼容接口调用
 - Agent 编排：推荐 demo 路径是 LangGraph Market Pulse
@@ -124,8 +124,7 @@ tests/                       # pytest 测试
 
 新闻来源：
 
-- Marketaux：`NEWS_BASE_URL=https://api.marketaux.com/v1/news/all`
-- NewsAPI：通过 `NEWS_BASE_URL` 切换
+- Marketaux：`MARKETAUX_BASE_URL=https://api.marketaux.com/v1/news/all`
 - 财经 RSS：CNBC、MarketWatch、NASDAQ、Seeking Alpha、Yahoo、WSJ 等聚合逻辑
 - 配置化 feed：
   - `agent-python/config/company_feeds.json`
@@ -137,8 +136,8 @@ tests/                       # pytest 测试
 - 配置：
 
 ```env
-MARKET_BASE_URL=https://www.alphavantage.co/query
-MARKET_API_KEY=your_key
+ALPHA_VANTAGE_BASE_URL=https://www.alphavantage.co/query
+ALPHA_VANTAGE_API_KEY=your_key
 ```
 
 行情数据只用于市场反应观察，例如 1/3/7 日涨跌幅和成交量变化，不用于交易建议。
@@ -176,8 +175,9 @@ DEEPSEEK_MODEL=deepseek-chat
 Marketaux 新闻：
 
 ```env
-NEWS_API_KEY=your_marketaux_key
-NEWS_BASE_URL=https://api.marketaux.com/v1/news/all
+MARKETAUX_API_KEY=your_marketaux_key
+MARKETAUX_BASE_URL=https://api.marketaux.com/v1/news/all
+MARKETAUX_PAGE_SIZE=20
 ```
 
 也支持：
@@ -189,8 +189,8 @@ MARKETAUX_API_KEY=your_marketaux_key
 Alpha Vantage 行情，可选：
 
 ```env
-MARKET_BASE_URL=https://www.alphavantage.co/query
-MARKET_API_KEY=your_key
+ALPHA_VANTAGE_BASE_URL=https://www.alphavantage.co/query
+ALPHA_VANTAGE_API_KEY=your_key
 ```
 
 Trace：
@@ -206,6 +206,8 @@ TRACE_DIR=traces
 ```powershell
 cd "D:\desk top\financial-agents\agent-python"
 python scripts/check_config.py
+python scripts/check_marketaux.py --query "NVIDIA AI chips"
+python scripts/check_alpha_vantage.py --symbol AAPL
 ```
 
 ## Trace 可观测性
@@ -290,8 +292,8 @@ curl -X POST http://127.0.0.1:8010/api/agent/market-pulse/langgraph ^
 Alpha Vantage 的 `TIME_SERIES_DAILY` 配置：
 
 ```env
-MARKET_BASE_URL=https://www.alphavantage.co/query
-MARKET_API_KEY=your_key
+ALPHA_VANTAGE_BASE_URL=https://www.alphavantage.co/query
+ALPHA_VANTAGE_API_KEY=your_key
 ```
 
 验证配置是否读到：
@@ -304,7 +306,7 @@ python scripts/check_config.py
 验证 `TIME_SERIES_DAILY` 是否连通：
 
 ```powershell
-python scripts/check_market_data.py --symbol AAPL
+python scripts/check_alpha_vantage.py --symbol AAPL
 ```
 
 ## 测试

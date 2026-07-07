@@ -1,5 +1,5 @@
 from market_pulse.schemas import MarketMetric, MarketMetrics, TickerLinks
-from clients.market_data_client import fetch_market_history, calculate_returns
+from clients.alpha_vantage_client import calculate_returns, fetch_alpha_vantage_daily
 
 
 async def analyze_market(
@@ -14,7 +14,7 @@ async def analyze_market(
 
     spy_return_3d = None
     try:
-        spy_prices = await fetch_market_history("SPY")
+        spy_prices = await fetch_alpha_vantage_daily("SPY")
         spy_returns = calculate_returns(spy_prices)
         spy_return_3d = spy_returns.get("return_3d")
     except Exception:
@@ -22,7 +22,7 @@ async def analyze_market(
 
     for ticker in tickers:
         try:
-            prices = await fetch_market_history(ticker)
+            prices = await fetch_alpha_vantage_daily(ticker)
             result = calculate_returns(prices)
 
             return_3d = result.get("return_3d")

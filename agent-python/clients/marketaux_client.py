@@ -1,6 +1,5 @@
 import math
 from datetime import datetime, timezone
-from urllib.parse import urlparse
 
 from app.config import settings
 from app.errors import ExternalServiceError, ExternalServiceNotConfigured
@@ -9,7 +8,7 @@ from clients.retry import get_json_with_retry
 from market_pulse.schemas import NewsItem
 
 
-DEFAULT_MARKET_QUERIES = [
+DEFAULT_MARKETAUX_QUERIES = [
     "stock market today major news",
     "global financial markets today",
     "market movers today stocks",
@@ -46,68 +45,56 @@ async def translate_to_chinese(text: str) -> str:
     return await chat_completion(system_prompt, user_prompt)
 
 
-async def search_news(
+async def search_marketaux_news(
     query: str = "",
     limit: int = 5,
     language: str = "en",
     translate_to_zh: bool = True,
 ) -> list[NewsItem]:
-    if not settings.news_api_key:
-        raise ExternalServiceNotConfigured("NEWS_API_KEY is not configured.")
+    if not settings.marketaux_api_key:
+        raise ExternalServiceNotConfigured("MARKETAUX_API_KEY is not configured.")
 
-    if not settings.news_base_url:
-        raise ExternalServiceNotConfigured("NEWS_BASE_URL is not configured.")
+    if not settings.marketaux_base_url:
+        raise ExternalServiceNotConfigured("MARKETAUX_BASE_URL is not configured.")
 
-    provider = _detect_news_provider(settings.news_base_url)
-    params = _build_news_params(
-        provider=provider,
-        query=query,
-        limit=limit,
-        language=language,
-    )
+    params = _build_marketaux_params(query=query, limit=limit, language=language)
 
     try:
         data = await get_json_with_retry(
-            settings.news_base_url,
+            settings.marketaux_base_url,
             params=params,
             timeout=settings.llm_timeout_seconds,
             max_retries=settings.llm_retry_attempts,
             backoff_seconds=settings.llm_retry_backoff_seconds,
-            error_type="news_api_failed",
+            error_type="marketaux_failed",
         )
-        if "error" in data:
-            raise ExternalServiceError(f"{provider} error: {data}")
-        if data.get("status") == "error":
-            raise ExternalServiceError(f"{provider} error: {data}")
+        if "error" in data or data.get("status") == "error":
+            raise ExternalServiceError(f"Marketaux error: {data}")
 
-        return await _parse_news_response(
-            provider=provider,
-            data=data,
-            translate_to_zh=translate_to_zh,
-        )
+        return await _parse_marketaux_response(data=data, translate_to_zh=translate_to_zh)
 
     except ExternalServiceError:
         raise
     except Exception as exc:
-        raise ExternalServiceError(f"{provider} news request failed: {exc}") from exc
+        raise ExternalServiceError(f"Marketaux request failed: {exc}") from exc
 
 
-async def collect_latest_market_news(
+async def collect_latest_marketaux_news(
     limit: int = 80,
     language: str = "en",
     translate_to_zh: bool = True,
 ) -> list[NewsItem]:
     """
-    Build a candidate news pool from multiple finance-related queries.
+    Build a candidate pool from Marketaux finance-related search queries.
 
     limit means candidate pool size, not final analysis size.
     """
-    per_query_limit = max(5, math.ceil(limit / len(DEFAULT_MARKET_QUERIES)))
+    per_query_limit = max(5, math.ceil(limit / len(DEFAULT_MARKETAUX_QUERIES)))
     all_items: list[NewsItem] = []
 
-    for query in DEFAULT_MARKET_QUERIES:
+    for query in DEFAULT_MARKETAUX_QUERIES:
         try:
-            items = await search_news(
+            items = await search_marketaux_news(
                 query=query,
                 limit=per_query_limit,
                 language=language,
@@ -115,69 +102,44 @@ async def collect_latest_market_news(
             )
             all_items.extend(items)
         except Exception as exc:
-            print(f"[news-api] query failed query={query!r}: {exc}")
-            if _is_terminal_news_error(exc):
+            print(f"[marketaux] query failed query={query!r}: {exc}")
+            if _is_terminal_marketaux_error(exc):
                 break
 
     return _dedupe_news(all_items)
 
 
-def _detect_news_provider(base_url: str) -> str:
-    host = urlparse(base_url).netloc.lower()
-    if "newsapi.org" in host:
-        return "newsapi"
-    if "marketaux.com" in host:
-        return "marketaux"
-    return "generic"
-
-
-def _is_terminal_news_error(exc: Exception) -> bool:
+def _is_terminal_marketaux_error(exc: Exception) -> bool:
     message = str(exc).lower()
     return (
         "status=401" in message
         or "status=402" in message
-        or "apikeyinvalid" in message
         or "usage_limit" in message
         or "usage limit" in message
     )
 
 
-def _build_news_params(
-    provider: str,
+def _build_marketaux_params(
     query: str,
     limit: int,
     language: str,
 ) -> dict[str, str | int]:
-    safe_limit = max(1, min(limit, 50))
-    clean_query = query.strip()
-
-    if provider == "newsapi":
-        params: dict[str, str | int] = {
-            "apiKey": settings.news_api_key,
-            "pageSize": safe_limit,
-            "language": language,
-            "sortBy": "publishedAt",
-        }
-        if clean_query:
-            params["q"] = clean_query
-        return params
-
-    params = {
-        "api_token": settings.news_api_key,
-        "limit": safe_limit,
+    params: dict[str, str | int] = {
+        "api_token": settings.marketaux_api_key,
+        "limit": max(1, min(limit, 50)),
         "language": language,
     }
+    clean_query = query.strip()
     if clean_query:
         params["search"] = clean_query
     return params
 
 
-async def _parse_news_response(
-    provider: str,
+async def _parse_marketaux_response(
     data: dict,
     translate_to_zh: bool,
 ) -> list[NewsItem]:
-    articles = data.get("articles") if provider == "newsapi" else data.get("data")
+    articles = data.get("data")
     if not isinstance(articles, list):
         return []
 
@@ -186,61 +148,26 @@ async def _parse_news_response(
         if not isinstance(article, dict):
             continue
 
-        item = await _parse_article(
+        title = article.get("title") or ""
+        description = article.get("description") or ""
+        snippet = article.get("snippet") or ""
+        url = article.get("url") or ""
+        published_at = article.get("published_at") or ""
+        source = article.get("source") or ""
+
+        item = await _build_news_item(
             idx=idx,
-            provider=provider,
-            article=article,
+            title=title,
+            content=description or snippet,
+            source=source,
+            url=url,
+            published_at=published_at,
             translate_to_zh=translate_to_zh,
         )
         if item:
             items.append(item)
 
     return items
-
-
-async def _parse_article(
-    idx: int,
-    provider: str,
-    article: dict,
-    translate_to_zh: bool,
-) -> NewsItem | None:
-    if provider == "newsapi":
-        source_data = article.get("source") or {}
-        source = source_data.get("name") if isinstance(source_data, dict) else ""
-        title = article.get("title") or ""
-        description = article.get("description") or ""
-        content = article.get("content") or ""
-        url = article.get("url") or ""
-        published_at = article.get("publishedAt") or ""
-
-        return await _build_news_item(
-            idx=idx,
-            title=title,
-            content=description or content,
-            source=source or "",
-            url=url,
-            published_at=published_at,
-            provider=provider,
-            translate_to_zh=translate_to_zh,
-        )
-
-    title = article.get("title") or ""
-    description = article.get("description") or ""
-    snippet = article.get("snippet") or ""
-    url = article.get("url") or ""
-    published_at = article.get("published_at") or ""
-    source = article.get("source") or ""
-
-    return await _build_news_item(
-        idx=idx,
-        title=title,
-        content=description or snippet,
-        source=source,
-        url=url,
-        published_at=published_at,
-        provider=provider,
-        translate_to_zh=translate_to_zh,
-    )
 
 
 async def _build_news_item(
@@ -250,7 +177,6 @@ async def _build_news_item(
     source: str,
     url: str,
     published_at: str,
-    provider: str,
     translate_to_zh: bool,
 ) -> NewsItem | None:
     if not title and not content:
@@ -280,7 +206,7 @@ async def _build_news_item(
         url=url,
         published_at=published_at,
         fetched_at=_utc_now_iso(),
-        provider=provider,
+        provider="marketaux",
     )
 
 

@@ -51,7 +51,8 @@ storage/report_store.py     # SQLite
 
 ```powershell
 python scripts/check_config.py                   # 检查配置是否读到
-python scripts/check_market_data.py --symbol AAPL # 检查 Alpha Vantage 日线
+python scripts/check_marketaux.py --query "NVIDIA AI chips" # 检查 Marketaux 新闻
+python scripts/check_alpha_vantage.py --symbol AAPL # 检查 Alpha Vantage 日线
 python scripts/smoke_test.py --daily-job-check   # 主链路冒烟
 python scripts/check_news_quality.py              # 去重/freshness/source_weight
 python scripts/check_report_guard.py              # 合规扫描

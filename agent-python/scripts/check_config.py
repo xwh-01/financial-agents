@@ -30,14 +30,20 @@ def main() -> None:
     print(f"- model={settings.llm_model}")
     print(f"- has_key={bool(settings.llm_api_key)} key={_mask(settings.llm_api_key)}")
 
-    print("\nNews:")
-    print(f"- news_base_url={settings.news_base_url}")
-    print(f"- has_news_key={bool(settings.news_api_key)} key={_mask(settings.news_api_key)}")
-    print(f"- has_marketaux_key={bool(settings.marketaux_api_key)}")
+    print("\nMarketaux:")
+    print(f"- base_url={settings.marketaux_base_url}")
+    print(
+        f"- has_key={bool(settings.marketaux_api_key)} "
+        f"key={_mask(settings.marketaux_api_key)}"
+    )
+    print(f"- page_size={settings.marketaux_page_size}")
 
-    print("\nMarket:")
-    print(f"- market_base_url={settings.market_base_url}")
-    print(f"- has_market_key={bool(settings.market_api_key)} key={_mask(settings.market_api_key)}")
+    print("\nAlpha Vantage:")
+    print(f"- base_url={settings.alpha_vantage_base_url}")
+    print(
+        f"- has_key={bool(settings.alpha_vantage_api_key)} "
+        f"key={_mask(settings.alpha_vantage_api_key)}"
+    )
 
 
 if __name__ == "__main__":

@@ -55,8 +55,10 @@ docker compose down
 | `LLM_API_KEY` | (空) | OpenAI 兼容 API Key |
 | `LLM_BASE_URL` | `https://api.openai.com/v1/chat/completions` | LLM API 地址 |
 | `LLM_MODEL` | `gpt-4o-mini` | 模型名称 |
-| `NEWS_API_KEY` | (空) | 新闻 API Key (NewsAPI / Marketaux) |
-| `NEWS_BASE_URL` | (空) | 新闻 API 地址 |
+| `MARKETAUX_API_KEY` | (空) | Marketaux API Key |
+| `MARKETAUX_BASE_URL` | `https://api.marketaux.com/v1/news/all` | Marketaux API 地址 |
+| `ALPHA_VANTAGE_API_KEY` | (空) | Alpha Vantage API Key |
+| `ALPHA_VANTAGE_BASE_URL` | `https://www.alphavantage.co/query` | Alpha Vantage API 地址 |
 | `CORS_ALLOWED_ORIGINS` | `http://127.0.0.1:5173,http://localhost:5173` | 允许的前端域名（逗号分隔） |
 | `ENABLE_REPORT_SCHEDULER` | `false` | 是否启用每日定时任务 |
 | `DAILY_REPORT_HOUR` | `8` | 每日创建 job 的小时 |
@@ -68,8 +70,10 @@ docker compose down
 
 ```env
 LLM_API_KEY=sk-your-key-here
-NEWS_API_KEY=your-newsapi-key
-NEWS_BASE_URL=https://newsapi.org/v2/everything
+MARKETAUX_API_KEY=your-marketaux-key
+MARKETAUX_BASE_URL=https://api.marketaux.com/v1/news/all
+ALPHA_VANTAGE_API_KEY=your-alpha-vantage-key
+ALPHA_VANTAGE_BASE_URL=https://www.alphavantage.co/query
 ```
 
 `.env` 已加入 `.gitignore`，不会被提交到仓库。
@@ -122,7 +126,7 @@ Windows/Mac 需要先启动 Docker Desktop，再运行 `docker compose up`。
 
 ### API Key 缺失
 
-未配置 `NEWS_API_KEY` 时，后端可启动但新闻采集接口（`/api/agent/market-pulse/langgraph`）会返回错误。RSS 源不受影响。
+未配置 `MARKETAUX_API_KEY` 时，后端可启动；Marketaux 查询会跳过或降级，RSS 源不受影响。
 
 ### CORS 错误
 

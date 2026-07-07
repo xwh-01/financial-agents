@@ -15,17 +15,17 @@ class NewsService:
         tickers: list[str] | None = None,
         limit: int | None = None,
     ) -> list[NewsItem]:
-        if settings.news_api_key and settings.news_base_url:
+        if settings.marketaux_api_key and settings.marketaux_base_url:
             try:
-                from clients.news_client import search_news
+                from clients.marketaux_client import search_marketaux_news
 
-                legacy_items = await search_news(
+                marketaux_items = await search_marketaux_news(
                     query=query,
-                    limit=limit or settings.news_page_size,
+                    limit=limit or settings.marketaux_page_size,
                     language="en",
                     translate_to_zh=False,
                 )
-                return [_from_legacy_news(item) for item in legacy_items]
+                return [_from_marketaux_news(item) for item in marketaux_items]
             except Exception:
                 return offline_sample_news(query=query, tickers=tickers or [], limit=limit)
         return offline_sample_news(query=query, tickers=tickers or [], limit=limit)
@@ -85,10 +85,10 @@ def offline_sample_news(
     if query or requested:
         preferred = {ticker.upper() for ticker in requested}
         rows.sort(key=lambda item: 0 if (item.symbol or "").upper() in preferred else 1)
-    return rows[: limit or settings.news_page_size]
+    return rows[: limit or settings.marketaux_page_size]
 
 
-def _from_legacy_news(item) -> NewsItem:
+def _from_marketaux_news(item) -> NewsItem:
     tickers = list(getattr(item, "matched_tickers", []) or [])
     return NewsItem(
         title=getattr(item, "title", "") or "",
@@ -98,4 +98,3 @@ def _from_legacy_news(item) -> NewsItem:
         published_at=getattr(item, "published_at", "") or "",
         symbol=tickers[0] if tickers else None,
     )
-

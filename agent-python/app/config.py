@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-chat"
     marketaux_api_key: str = ""
-    news_page_size: int = 20
+    marketaux_base_url: str = "https://api.marketaux.com/v1/news/all"
+    marketaux_page_size: int = 20
     trace_dir: str = "traces"
 
     llm_base_url: str = "https://api.openai.com/v1/chat/completions"
@@ -30,9 +31,6 @@ class Settings(BaseSettings):
     llm_retry_attempts: int = 3
     llm_retry_backoff_seconds: float = 1.0
 
-    news_base_url: str = ""
-    news_api_key: str = ""
-
     company_feeds_path: str = "config/company_feeds.json"
     market_feeds_path: str = "config/market_feeds.json"
     enable_company_rss: bool = True
@@ -40,8 +38,8 @@ class Settings(BaseSettings):
     rss_timeout_seconds: int = 15
     min_news_count: int = 10
 
-    market_base_url: str = ""
-    market_api_key: str = ""
+    alpha_vantage_base_url: str = "https://www.alphavantage.co/query"
+    alpha_vantage_api_key: str = ""
 
     jwt_secret: str = ""
     token_expire_days: int = 7
@@ -75,19 +73,13 @@ class Settings(BaseSettings):
             if self.llm_model in {"gpt-4o-mini", "deepseek-chat"}:
                 self.llm_model = self.deepseek_model
 
-        if _is_empty_or_placeholder(self.news_api_key) and not _is_empty_or_placeholder(
-            self.marketaux_api_key
-        ):
-            self.news_api_key = self.marketaux_api_key
-        if _is_empty_or_placeholder(self.news_base_url):
-            self.news_base_url = "https://api.marketaux.com/v1/news/all"
-
 def _is_empty_or_placeholder(value: str) -> bool:
     text = str(value or "").strip()
     return text == "" or text in {
         "your_key",
         "your_llm_api_key_here",
-        "your_news_api_key_here",
+        "your_marketaux_key",
+        "your_alpha_vantage_key",
     }
 
 

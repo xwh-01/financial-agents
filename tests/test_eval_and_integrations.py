@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from clients.market_data_client import calculate_returns
+from clients.alpha_vantage_client import calculate_returns
 from market_pulse.schemas import NewsItem
 from market_pulse.filters.news_filter import dedupe_news
 

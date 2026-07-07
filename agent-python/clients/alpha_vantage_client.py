@@ -1,72 +1,49 @@
 from app.config import settings
-from app.errors import ExternalServiceNotConfigured, ExternalServiceError
+from app.errors import ExternalServiceError, ExternalServiceNotConfigured
 from clients.retry import get_json_with_retry
 
 
-async def fetch_market_history(ticker: str) -> list[dict]:
+async def fetch_alpha_vantage_daily(ticker: str) -> list[dict]:
     """
-    从 Alpha Vantage 拉取真实日线行情。
+    Fetch Alpha Vantage TIME_SERIES_DAILY data and normalize it.
 
-    返回统一格式：
+    Returns newest-to-oldest rows:
     [
       {"date": "2026-05-15", "close": 100.0, "volume": 1234567}
     ]
-
-    注意：
-    - 返回顺序是从新到旧。
-    - calculate_returns 按这个顺序计算近 1/3/7 个交易日收益。
     """
-    if not settings.market_api_key:
-        raise ExternalServiceNotConfigured("MARKET_API_KEY is not configured.")
+    if not settings.alpha_vantage_api_key:
+        raise ExternalServiceNotConfigured("ALPHA_VANTAGE_API_KEY is not configured.")
 
-    if not settings.market_base_url:
-        raise ExternalServiceNotConfigured("MARKET_BASE_URL is not configured.")
+    if not settings.alpha_vantage_base_url:
+        raise ExternalServiceNotConfigured("ALPHA_VANTAGE_BASE_URL is not configured.")
 
     params = {
         "function": "TIME_SERIES_DAILY",
         "symbol": ticker,
-        "apikey": settings.market_api_key,
+        "apikey": settings.alpha_vantage_api_key,
         "outputsize": "compact",
     }
 
     try:
         data = await get_json_with_retry(
-            settings.market_base_url,
+            settings.alpha_vantage_base_url,
             params=params,
             timeout=settings.llm_timeout_seconds,
             max_retries=settings.llm_retry_attempts,
             backoff_seconds=settings.llm_retry_backoff_seconds,
-            error_type="market_data_failed",
+            error_type="alpha_vantage_failed",
         )
 
-        return normalize_market_data(data)
+        return normalize_alpha_vantage_daily(data)
 
     except Exception as exc:
         raise ExternalServiceError(
-            f"Market data request failed for {ticker}: {exc}"
+            f"Alpha Vantage request failed for {ticker}: {exc}"
         ) from exc
 
 
-def normalize_market_data(data: dict) -> list[dict]:
-    """
-    Alpha Vantage TIME_SERIES_DAILY_ADJUSTED 返回字段大概是：
-
-    {
-      "Time Series (Daily)": {
-        "2026-05-15": {
-          "4. close": "...",
-          "5. adjusted close": "...",
-          "6. volume": "..."
-        }
-      }
-    }
-
-    这里统一转成：
-    [
-      {"date": "2026-05-15", "close": 100.0, "volume": 1234567}
-    ]
-    """
-
+def normalize_alpha_vantage_daily(data: dict) -> list[dict]:
     if "Error Message" in data:
         raise ExternalServiceError(f"Alpha Vantage error: {data['Error Message']}")
 
@@ -103,25 +80,14 @@ def normalize_market_data(data: dict) -> list[dict]:
             }
         )
 
-    # Alpha Vantage 默认通常已经是新到旧，这里再显式排序，保证稳定
     result.sort(key=lambda x: x["date"], reverse=True)
-
     return result
 
 
 def calculate_returns(prices: list[dict]) -> dict:
     """
-    prices 要求是新到旧：
-    prices[0] = 最新交易日
-    prices[1] = 前 1 个交易日
-    prices[3] = 前 3 个交易日
-    prices[7] = 前 7 个交易日
-
-    return_1d = 最新价 / 1日前价格 - 1
-    return_3d = 最新价 / 3日前价格 - 1
-    return_7d = 最新价 / 7日前价格 - 1
+    Calculate 1/3/7-trading-day returns from newest-to-oldest price rows.
     """
-
     if len(prices) < 8:
         return {
             "return_1d": None,

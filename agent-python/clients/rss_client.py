@@ -12,7 +12,7 @@ except ModuleNotFoundError:
     feedparser = None
 
 from clients.retry import get_bytes_with_retry
-from clients.news_client import collect_latest_market_news
+from clients.marketaux_client import collect_latest_marketaux_news
 from app.config import settings
 from market_pulse.schemas import NewsItem
 
@@ -189,14 +189,14 @@ async def collect_company_market_news(
 
     try:
         all_items.extend(
-            await collect_latest_market_news(
+            await collect_latest_marketaux_news(
                 limit=limit,
                 language=language,
                 translate_to_zh=translate_to_zh,
             )
         )
     except Exception as exc:
-        print(f"[source-aggregator] news api failed: {exc}")
+        print(f"[source-aggregator] Marketaux failed: {exc}")
 
     configs = load_company_feeds()
     market_configs = load_market_feeds()
