@@ -20,6 +20,15 @@ agent-python/.env.local
 # Logs
 *.log
 logs/
+traces/
+agent-python/app/eval/results/
+agent-python/storage/agent_traces/
+agent-python/storage/langgraph_traces/
+agent-python/evals/agent_eval_reports/
+agent-python/evals/reports/
+agent-python/evals/reports2/
+agent-python/evals/*.tmp
+agent-python/storage/*.tmp
 
 # IDE
 .vscode/

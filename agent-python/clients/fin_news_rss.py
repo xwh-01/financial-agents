@@ -12,8 +12,12 @@ from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote_plus, urlparse
 
-import feedparser
 import httpx
+
+try:
+    import feedparser
+except ModuleNotFoundError:
+    feedparser = None
 
 from market_pulse.schemas import NewsItem
 
@@ -174,6 +178,9 @@ def _wsj_urls() -> list[str]:
 
 def _parse_feed(response_bytes: bytes) -> list[dict]:
     """Parse raw RSS/XML bytes into a list of dicts (title/link/content/published)."""
+    if feedparser is None:
+        print("[fin-rss] feedparser is not installed; skip RSS parsing")
+        return []
     parsed = feedparser.parse(response_bytes)
     entries: list[dict] = []
     for entry in parsed.entries:

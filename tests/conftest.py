@@ -7,7 +7,10 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 AGENT_ROOT = ROOT / "agent-python"
-sys.path.insert(0, str(AGENT_ROOT))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+if str(AGENT_ROOT) not in sys.path:
+    sys.path.append(str(AGENT_ROOT))
 
 if "feedparser" not in sys.modules:
     sys.modules["feedparser"] = types.SimpleNamespace(

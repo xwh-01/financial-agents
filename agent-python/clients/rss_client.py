@@ -6,7 +6,10 @@ from typing import TypedDict
 from urllib.parse import quote_plus
 from urllib.parse import urlparse
 
-import feedparser
+try:
+    import feedparser
+except ModuleNotFoundError:
+    feedparser = None
 
 from clients.retry import get_bytes_with_retry
 from clients.news_client import collect_latest_market_news
@@ -114,6 +117,10 @@ def load_market_feeds() -> list[MarketFeedConfig]:
 
 
 async def fetch_rss_feed(url: str, limit: int = 20) -> list[NewsItem]:
+    if feedparser is None:
+        print("[rss] feedparser is not installed; skip RSS feed")
+        return []
+
     content = await get_bytes_with_retry(
         url,
         headers=RSS_REQUEST_HEADERS,

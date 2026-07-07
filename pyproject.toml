@@ -1,0 +1,7 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".venv", "agent-python/.venv"]
+
+[tool.ruff.lint]
+select = ["F"]

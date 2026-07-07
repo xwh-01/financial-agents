@@ -1,200 +1,313 @@
 # Financial Agents
 
-面向财经新闻的 **Market Intelligence Agentic Workflow**：基于 FastAPI + LangGraph 聚合多源新闻、分析事件影响、生成带证据链的市场观察报告。
+## 项目定位
 
-本项目是个人学习和作品集项目，重点展示可解释 workflow、合规边界、证据链、trace 和 offline eval。它不是自动荐股系统，不做量化交易，不输出买卖建议，也不是生产级投研系统。
+Financial Agents 是一个财经新闻脉冲分析 Agent：抓取财经新闻，筛选高影响事件，调用 LLM 做结构化分析，输出可评测、可追踪、可解释的市场简报。
 
-## What It Does
+本项目不做真实交易，不接券商 API，不生成自动下单、买卖建议、目标价建议或投资组合建议。所有报告仅用于公开信息整理、市场研究和工程演示，不构成投资建议。
 
-- 从 News API、RSS、市场数据接口收集候选新闻。
-- 使用 LangGraph 串联 `collect_news -> rank_news -> analyze_items -> risk_route -> risk_review -> generate_report`。
-- 输出 `market_signals`，每条包含 `supporting_articles`、风险原因、不确定性和证据摘要。
-- 保留 legacy endpoints 和 legacy `recommendations` 字段，仅用于兼容，不作为推荐 demo 入口。
-- 最终报告包含合规 disclaimer：本报告仅用于信息整理和研究参考，不构成投资建议。
+## 核心功能
 
-```mermaid
-flowchart LR
-  A[News / RSS / Market Data] --> B[collect_news]
-  B --> C[rank_news]
-  C --> D[analyze_items]
-  D --> E[risk_route]
-  E --> F[risk_review]
-  E --> G[generate_report]
-  F --> G
-  G --> H[save_report]
-  H --> I[frontend dashboard]
+- 多源财经新闻抓取：Marketaux / NewsAPI / 财经 RSS / 公司与市场 feed
+- 高影响新闻筛选：根据 ticker、事件类型、宏观词、风险词、来源权重和新鲜度排序
+- LLM 结构化分析：统一通过 DeepSeek/OpenAI 兼容接口调用
+- Agent 编排：推荐 demo 路径是 LangGraph Market Pulse
+- Trace 可观测性：记录 Agent 节点执行过程、耗时、输入输出摘要和错误
+- Eval 评测：离线评估 ranking 质量，不依赖真实 API key
+- 前端功能：登录、watchlist、报告任务、报告历史和报告详情
+
+## 唯一后端入口
+
+本项目只保留一个完整后端入口：
+
+```text
+agent-python/app/main.py
 ```
 
-## Safety And Secrets
-
-- Do not commit `.env` or real API keys.
-- `.env.example` files contain placeholders only.
-- If a real key was ever committed, rotate it in the provider console.
-- `.gitignore` ignores `.env`, `*.env`, `agent-python/.env`, `__pycache__/`, `.pytest_cache/`, and `.coverage`.
-
-## Quick Start
+启动后端：
 
 ```powershell
-# 1. Backend env
-copy agent-python\.env.example agent-python\.env
-# Edit placeholders in agent-python\.env if you want real external APIs.
-
-# 2. Install backend dependencies
-cd agent-python
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
-
-# 3. Start FastAPI
+cd "D:\desk top\financial-agents\agent-python"
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8010
+```
 
-# 4. Frontend
-cd ..\frontend
+启动前端：
+
+```powershell
+cd "D:\desk top\financial-agents\frontend"
 python -m http.server 5173
-# Open http://127.0.0.1:5173
 ```
 
-Default backend port: `8010`.
+打开：
 
-Recommended LangGraph API:
-
-```powershell
-Invoke-RestMethod `
-  -Method Post `
-  -Uri http://127.0.0.1:8010/api/agent/market-pulse/langgraph `
-  -ContentType "application/json" `
-  -Body '{"query":"NVIDIA AI chips","max_items":5,"tickers":["NVDA"]}'
+```text
+http://127.0.0.1:5173
 ```
 
-## Demo Flow
+API 文档：
 
-1. Register or login in the frontend.
-2. Create a Watchlist and add ticker/topic/macro items.
-3. Click “生成今日报告”.
-4. Open the report detail page.
-5. Review `market_signals`.
-6. Expand each signal to inspect `supporting_articles`.
-7. Check risk observation, uncertainty, source URL, and compliance status.
-8. Run offline eval and inspect trace JSON.
-
-## Eval
-
-Offline benchmark is deterministic and does not require real API keys.
-
-```powershell
-python evals/run_eval.py
+```text
+http://127.0.0.1:8010/docs
 ```
 
-Outputs:
+## Agent 工作流
 
-- `evals/report.md`
-- `evals/report.json`
+推荐 demo 入口：
 
-Metrics include:
+```text
+POST /api/agent/market-pulse/langgraph
+```
 
-- `relevance_at_5`
-- `ticker_linking_accuracy`
-- `risk_label_accuracy`
-- `faithfulness_pass_rate`
-- `compliance_violation_rate`
-- `avg_latency_ms`
-- `total_cases`
-- `passed_cases`
-- `failed_cases`
+现有 LangGraph 主流程：
 
-## Trace
+```text
+collect_news
+-> rank_news
+-> analyze_items
+-> risk_route
+-> risk_review
+-> generate_report
+```
 
-Every LangGraph run creates a `trace_id`. The final API response includes:
+工程化补充模块位于同一个后端包内：
+
+```text
+agent-python/app/agents/
+agent-python/app/services/
+agent-python/app/core/
+agent-python/app/eval/
+agent-python/app/schemas.py
+```
+
+这些模块用于面试讲解结构化状态、服务封装、轻量 workflow、trace 和 eval；完整产品运行仍然走 `agent-python/app/main.py`。
+
+## 系统架构
+
+```text
+agent-python/
+  app/
+    main.py                  # FastAPI 唯一入口
+    config.py                # 配置加载，兼容 DeepSeek / Marketaux
+    schemas.py               # 工程化 Agent 数据模型
+    api/                     # 前端与报告相关 API
+    agents/                  # 轻量可测试 workflow
+    services/                # news / llm / ranking 服务封装
+    core/                    # trace / logging / config 兼容层
+    eval/                    # 离线 ranking 评测
+  market_pulse/
+    graph.py                 # LangGraph Market Pulse 编排
+    nodes/                   # collect/rank/analyze/risk/report 节点
+    rankers/                 # 新闻排序逻辑
+    analyzers/               # 事件、风险、报告生成
+  clients/                   # LLM、新闻、RSS、市场数据客户端
+  report_jobs/               # 报告任务与任务 trace
+  reports/                   # 报告存储与查询
+  watchlists/                # 自选列表
+frontend/                    # 静态前端
+tests/                       # pytest 测试
+```
+
+## 数据模型
+
+工程化数据模型在 `agent-python/app/schemas.py`：
+
+- `NewsItem`：标准化新闻输入
+- `RankedNewsItem`：排序后的新闻，包含 `impact_score`、`reason`、`risk`、`confidence`
+- `MarketSignal`：结构化市场观察
+- `AgentState`：节点之间传递的状态，避免散乱 dict
+- `AnalysisReport`：最终市场简报
+- `EvalCase` / `EvalResult`：离线评测输入与结果
+
+原有产品模型仍保留在 `agent-python/market_pulse/schemas.py`，用于现有 LangGraph 和前端兼容。
+
+## 信息来源
+
+新闻来源：
+
+- Marketaux：`NEWS_BASE_URL=https://api.marketaux.com/v1/news/all`
+- NewsAPI：通过 `NEWS_BASE_URL` 切换
+- 财经 RSS：CNBC、MarketWatch、NASDAQ、Seeking Alpha、Yahoo、WSJ 等聚合逻辑
+- 配置化 feed：
+  - `agent-python/config/company_feeds.json`
+  - `agent-python/config/market_feeds.json`
+
+行情来源：
+
+- Alpha Vantage，当前代码按 `TIME_SERIES_DAILY` 设计
+- 配置：
+
+```env
+MARKET_BASE_URL=https://www.alphavantage.co/query
+MARKET_API_KEY=your_key
+```
+
+行情数据只用于市场反应观察，例如 1/3/7 日涨跌幅和成交量变化，不用于交易建议。
+
+## 环境变量
+
+建议编辑：
+
+```text
+agent-python/.env
+```
+
+DeepSeek：
+
+```env
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=your_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
+```
+
+Marketaux 新闻：
+
+```env
+NEWS_API_KEY=your_marketaux_key
+NEWS_BASE_URL=https://api.marketaux.com/v1/news/all
+```
+
+也支持：
+
+```env
+MARKETAUX_API_KEY=your_marketaux_key
+```
+
+Alpha Vantage 行情，可选：
+
+```env
+MARKET_BASE_URL=https://www.alphavantage.co/query
+MARKET_API_KEY=your_key
+```
+
+Trace：
+
+```env
+TRACE_DIR=traces
+```
+
+不要提交 `.env` 或真实 API key。
+
+## Trace 可观测性
+
+LangGraph 主流程会记录节点级 trace。工程化轻量 workflow 会保存：
+
+```text
+traces/{trace_id}.json
+```
+
+trace 记录：
 
 - `trace_id`
-- `trace_events`
-- `trace_path`
+- `started_at` / `finished_at`
+- `node_name`
+- `input_summary`
+- `output_summary`
+- `latency_ms`
+- `error`
+- `llm_model`
+- `token_usage`
 
-Trace JSON is written under:
+面试时可以说明：项目不是黑盒 LLM 调用，而是有 Agent 执行轨迹，可以复盘每个节点。
 
-```text
-agent-python/storage/langgraph_traces/{trace_id}.json
-```
+## Eval 评测体系
 
-Each node trace records `node_name`, `start_time`, `end_time`, `duration_ms`, `input_count`, `output_count`, `error_code`, `error_message`, and `retry_count`.
-
-## Report Job & Trace
-
-Report generation runs as a background job so the UI and API can show progress, retry failed work, and inspect what happened after a run finishes. This is still the same FastAPI + LangGraph + SQLite architecture; it does not use Redis, Celery, Kafka, or PostgreSQL.
-
-Job status flow:
-
-```text
-pending -> running -> succeeded
-pending -> running -> failed
-failed -> dead
-pending/running -> cancelled
-```
-
-Each report job can now point to a database-backed report trace. A full trace records these steps when applicable:
-
-```text
-collect_news -> rank_news -> analyze_items -> risk_route -> risk_review -> generate_report -> compliance_guard -> save_report
-```
-
-`risk_review` is still recorded when skipped, with `metadata.skipped=true`. Each step stores status, timing, input/output counts, error text, and JSON metadata. User-facing reports must keep the compliance disclaimer and remain market observations, risk observations, evidence summaries, and research references only; they are not investment advice.
-
-Progress and trace APIs:
+离线 eval 只评估 ranking 质量，不调用真实 LLM，不调用真实新闻 API：
 
 ```powershell
-# Query job progress
-Invoke-RestMethod -Headers @{Authorization="Bearer <token>"} `
-  -Uri http://127.0.0.1:8010/api/report-jobs/<job_id>
-
-# Cancel a pending/running job
-Invoke-RestMethod -Method Post -Headers @{Authorization="Bearer <token>"} `
-  -Uri http://127.0.0.1:8010/api/report-jobs/<job_id>/cancel
-
-# Retry a failed/dead/cancelled job; returns the new job
-Invoke-RestMethod -Method Post -Headers @{Authorization="Bearer <token>"} `
-  -Uri http://127.0.0.1:8010/api/report-jobs/<job_id>/retry
-
-# Query trace by job
-Invoke-RestMethod -Headers @{Authorization="Bearer <token>"} `
-  -Uri http://127.0.0.1:8010/api/report-jobs/<job_id>/trace
-
-# Query trace by report
-Invoke-RestMethod -Headers @{Authorization="Bearer <token>"} `
-  -Uri http://127.0.0.1:8010/api/reports/<report_id>/trace
+cd "D:\desk top\financial-agents"
+cd agent-python
+python -m app.eval.runner
 ```
 
-Manual verification:
+输出指标：
 
-1. Register/login and create a watchlist with at least one item.
-2. Create a job with `POST /api/watchlists/{watchlist_id}/report-jobs`.
-3. Run it with `POST /api/report-jobs/{job_id}/run` or start the worker.
-4. Poll `GET /api/report-jobs/{job_id}` until `status=succeeded`.
-5. Open `GET /api/report-jobs/{job_id}/trace` and verify step statuses, durations, counts, metadata, and errors.
+- `Precision@5`
+- `Precision@10`
+- `ImportantRecall@10`
+- `IrrelevantRate@10`
+- `average_latency_ms`
 
-Tests:
+结果保存到：
+
+```text
+agent-python/app/eval/results/latest.json
+```
+
+## 快速开始
+
+安装依赖：
+
+```powershell
+cd "D:\desk top\financial-agents"
+python -m pip install -r requirements.txt
+```
+
+运行后端：
+
+```powershell
+cd "D:\desk top\financial-agents\agent-python"
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8010
+```
+
+运行前端：
+
+```powershell
+cd "D:\desk top\financial-agents\frontend"
+python -m http.server 5173
+```
+
+## 运行示例
+
+```powershell
+curl -X POST http://127.0.0.1:8010/api/agent/market-pulse/langgraph ^
+  -H "Content-Type: application/json" ^
+  -d "{\"query\":\"Nvidia AI chips and Fed inflation risk\",\"max_items\":5,\"tickers\":[\"NVDA\",\"AAPL\"]}"
+```
+
+## 测试
 
 ```powershell
 pytest
+cd agent-python
+python -m app.eval.runner
 ```
 
-## Validation
+测试默认不依赖真实 API key，不调用真实 LLM。
 
-```powershell
-python -m compileall agent-python
-pytest
-python evals/run_eval.py
+## CI/CD
+
+GitHub Actions 位于 `.github/workflows/ci.yml`：
+
+```bash
+pip install -r requirements.txt
+pip install pytest pytest-cov ruff
+ruff check .
+pytest --cov=app
 ```
 
-## Legacy / Compatibility Only
+## 面试讲解重点
 
-These endpoints remain available for older demos or debugging, but the recommended portfolio path is `POST /api/agent/market-pulse/langgraph`.
+- 项目边界清晰：只做市场观察和风险观察，不做交易建议
+- 结构化状态：用模型描述新闻、排序结果、市场信号和报告
+- 工具/服务封装：新闻、LLM、排序、行情各自独立
+- Agent 编排：LangGraph 主流程清晰
+- Trace 可观测性：每次执行有节点轨迹
+- Eval 质量评测：用离线指标衡量 ranking 效果
+- CI 测试保障：配置、排序、trace、workflow、eval、报告任务都有测试
 
-- `POST /agent/analyze`
-- `POST /agent/batch-analyze-news`
-- `POST /agent/daily-brief`
-- `POST /agent/market-pulse`
-- `POST /api/market-pulse/agent-run`
+## 当前边界与未来优化
 
-## Compliance Statement
+当前边界：
 
-本项目仅用于公开信息整理、研究参考和工程能力展示，不构成投资建议、买卖建议、收益承诺或自动交易依据。
+- 不做真实交易
+- 不构成投资建议
+- 不接券商 API
+- 不输出买入、卖出、持仓或目标价建议
+
+未来优化：
+
+- 将工程化轻量 workflow 与现有 LangGraph 主流程进一步合并
+- 增加 trace 可视化页面
+- 增加更多离线 eval case
+- 对 LLM 输出增加更严格的 JSON schema 校验

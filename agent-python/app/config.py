@@ -8,6 +8,14 @@ class Settings(BaseSettings):
     app_host: str = "127.0.0.1"
     app_port: int = 8010
 
+    llm_provider: str = "deepseek"
+    deepseek_api_key: str = ""
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-chat"
+    marketaux_api_key: str = ""
+    news_page_size: int = 20
+    trace_dir: str = "traces"
+
     llm_base_url: str = "https://api.openai.com/v1/chat/completions"
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
@@ -47,6 +55,40 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    def model_post_init(self, __context: object) -> None:
+        if _is_empty_or_placeholder(self.llm_api_key) and not _is_empty_or_placeholder(
+            self.deepseek_api_key
+        ):
+            self.llm_api_key = self.deepseek_api_key
+
+        if self.llm_provider.lower() == "deepseek":
+            if self.llm_base_url == "https://api.openai.com/v1/chat/completions":
+                self.llm_base_url = _deepseek_chat_url(self.deepseek_base_url)
+            if self.llm_model in {"gpt-4o-mini", "deepseek-chat"}:
+                self.llm_model = self.deepseek_model
+
+        if _is_empty_or_placeholder(self.news_api_key) and not _is_empty_or_placeholder(
+            self.marketaux_api_key
+        ):
+            self.news_api_key = self.marketaux_api_key
+        if _is_empty_or_placeholder(self.news_base_url):
+            self.news_base_url = "https://api.marketaux.com/v1/news/all"
+
+def _is_empty_or_placeholder(value: str) -> bool:
+    text = str(value or "").strip()
+    return text == "" or text in {
+        "your_key",
+        "your_llm_api_key_here",
+        "your_news_api_key_here",
+    }
+
+
+def _deepseek_chat_url(base_url: str) -> str:
+    text = str(base_url or "https://api.deepseek.com").rstrip("/")
+    if text.endswith("/chat/completions"):
+        return text
+    return text + "/chat/completions"
 
 
 settings = Settings()
