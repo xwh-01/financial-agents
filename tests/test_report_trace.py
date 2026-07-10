@@ -90,3 +90,58 @@ def test_trace_step_failure_records_error(sample_user_watchlist):
     assert step["status"] == trace_repository.FAILED
     assert step["error"] == "mock analysis failed"
     assert step["duration_ms"] is not None
+
+
+def test_api_call_stats_round_trip(sample_user_watchlist):
+    from report_jobs import repository, trace_repository
+
+    job_id = repository.create_report_job(
+        user_id=sample_user_watchlist["user_id"],
+        watchlist_id=sample_user_watchlist["watchlist_id"],
+        job_type="manual",
+    )
+    trace_id = trace_repository.create_trace(
+        job_id=job_id,
+        user_id=sample_user_watchlist["user_id"],
+        watchlist_id=sample_user_watchlist["watchlist_id"],
+    )
+
+    trace_repository.save_api_call_stats(
+        trace_id=trace_id,
+        job_id=job_id,
+        report_id=None,
+        metrics={
+            "marketaux": {"logical_calls": 1, "http_attempts": 2},
+            "alpha_vantage": {"logical_calls": 3, "http_attempts": 3},
+        },
+    )
+
+    stats = trace_repository.list_api_call_stats(trace_id)
+    by_provider = {row["provider"]: row for row in stats}
+    assert by_provider["marketaux"]["logical_calls"] == 1
+    assert by_provider["marketaux"]["http_attempts"] == 2
+    assert by_provider["alpha_vantage"]["logical_calls"] == 3
+
+
+def test_save_api_call_stats_ignores_empty_metrics(sample_user_watchlist):
+    from report_jobs import repository, trace_repository
+
+    job_id = repository.create_report_job(
+        user_id=sample_user_watchlist["user_id"],
+        watchlist_id=sample_user_watchlist["watchlist_id"],
+        job_type="manual",
+    )
+    trace_id = trace_repository.create_trace(
+        job_id=job_id,
+        user_id=sample_user_watchlist["user_id"],
+        watchlist_id=sample_user_watchlist["watchlist_id"],
+    )
+
+    trace_repository.save_api_call_stats(
+        trace_id=trace_id,
+        job_id=job_id,
+        report_id=None,
+        metrics={},
+    )
+
+    assert trace_repository.list_api_call_stats(trace_id) == []

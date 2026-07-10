@@ -1,6 +1,12 @@
 query,total_items,precision_at_5,precision_at_10,important_recall_at_10,irrelevant_rate_at_10,false_positive_count,missed_important_count
-Apple earnings,11,1.0,0.75,1.0,0.0,0,0
-Fed interest rate,11,1.0,0.875,1.0,0.0,0,0
-NVIDIA AI chips,12,1.0,0.75,1.0,0.25,0,0
-gold market,11,1.0,0.875,1.0,0.125,0,0
-oil prices,11,1.0,0.7778,1.0,0.2222,0,0
+Fed rate policy inflation,13,1.0,0.8,1.0,0.0,0,0
+NVDA earnings AI chips,13,1.0,0.7,1.0,0.1,0,0
+Tesla robotaxi margins deliveries,13,1.0,0.8,1.0,0.1,0,0
+banks financial credit risk earnings,11,0.8,0.6,1.0,0.2,1,0
+gold precious metals safe haven,12,1.0,0.6,1.0,0.2,0,0
+"macro: Fed rates, CPI
+commodity: oil, gold",11,1.0,0.8,1.0,0.2,0,0
+oil crude energy OPEC supply,12,1.0,0.6,1.0,0.3,0,0
+semiconductor chip export China regulation,12,1.0,0.8,1.0,0.1,0,0
+"tickers: NVDA, AMD
+topics: data center, AI chips",12,0.8,0.6,1.0,0.2,1,0

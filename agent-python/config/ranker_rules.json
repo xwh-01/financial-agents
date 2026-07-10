@@ -1,0 +1,148 @@
+{
+  "weights": {
+    "event_match": 3.0,
+    "ticker_match": 4.0,
+    "topic_match": 2.0,
+    "market_term_cap": 4.0,
+    "configured_ticker": 4.0,
+    "configured_ticker_cap": 8.0,
+    "query_boost_per_hit": 2.0,
+    "query_boost_cap": 6.0,
+    "query_hit_per_token": 4.0,
+    "query_hit_cap": 16.0,
+    "context_hit": 3.0,
+    "context_hit_cap": 12.0,
+    "source_multiplier": 2.0,
+    "strong_negative": -5.0,
+    "weak_negative": -2.0,
+    "query_weak_negative": -3.0,
+    "bad_term": -5.0,
+    "content_too_short": -1.0,
+    "low_quality_surface": -8.0
+  },
+  "freshness": {
+    "max_age_days": 7,
+    "missing": -1.5,
+    "future": 3.0,
+    "within_6h": 3.0,
+    "within_24h": 2.0,
+    "within_72h": 1.0,
+    "within_max_age": 0.25,
+    "too_old": -10.0
+  },
+  "tickers": {
+    "NVDA": ["nvidia", "nvda", "ai chip", "gpu"],
+    "AMD": ["amd", "advanced micro devices"],
+    "AAPL": ["apple", "aapl", "iphone"],
+    "MSFT": ["microsoft", "msft", "azure", "openai"],
+    "GOOGL": ["google", "alphabet", "googl", "gemini"],
+    "AMZN": ["amazon", "amzn", "amazon web services"],
+    "META": ["meta", "facebook", "instagram"],
+    "TSLA": ["tesla", "tsla", "robotaxi"],
+    "TSM": ["tsmc", "taiwan semiconductor", "tsm", "foundry"],
+    "AVGO": ["broadcom", "avgo"],
+    "ASML": ["asml", "lithography"],
+    "QCOM": ["qualcomm", "qcom", "snapdragon"],
+    "MU": ["micron", "dram", "nand", "memory chip"],
+    "INTC": ["intel", "intc"],
+    "ORCL": ["oracle", "orcl"],
+    "CRM": ["salesforce"],
+    "NOW": ["servicenow"],
+    "ADBE": ["adobe", "adbe"],
+    "NFLX": ["netflix", "nflx"],
+    "JPM": ["jpmorgan", "jp morgan", "jpm", "chase"],
+    "BAC": ["bank of america", "bac"],
+    "GS": ["goldman sachs", "goldman"],
+    "MS": ["morgan stanley"],
+    "V": ["visa"],
+    "MA": ["mastercard"],
+    "PYPL": ["paypal", "pypl"],
+    "COIN": ["coinbase"],
+    "XOM": ["exxon", "exxon mobil", "xom"],
+    "CVX": ["chevron", "cvx"],
+    "COP": ["conocophillips", "conoco"],
+    "SLB": ["slb", "schlumberger"],
+    "LLY": ["eli lilly", "lilly", "lly"],
+    "UNH": ["unitedhealth", "unitedhealth group", "unh"],
+    "JNJ": ["johnson & johnson", "johnson and johnson", "jnj"],
+    "PFE": ["pfizer", "pfe"],
+    "MRK": ["merck", "mrk"],
+    "WMT": ["walmart", "wmt"],
+    "COST": ["costco"],
+    "HD": ["home depot"],
+    "MCD": ["mcdonald", "mcd"],
+    "NKE": ["nike", "nke"],
+    "DIS": ["disney"],
+    "SBUX": ["starbucks", "sbux"],
+    "UBER": ["uber"],
+    "PLTR": ["palantir", "pltr"],
+    "SHOP": ["shopify"],
+    "BA": ["boeing"],
+    "GE": ["ge aerospace", "general electric"]
+  },
+  "events": {
+    "macro": ["fed", "federal reserve", "interest rate", "inflation", "cpi", "jobs report", "unemployment", "treasury yields", "dollar"],
+    "geopolitical": ["war", "conflict", "sanctions", "tariffs", "trade war", "geopolitical"],
+    "commodities": ["gold", "oil", "crude", "gasoline", "jet fuel", "natural gas", "commodity", "opec"],
+    "policy": ["regulation", "antitrust", "government", "ban", "subsidy", "tax"],
+    "sector_rotation": ["bank stocks", "energy stocks", "healthcare stocks", "retail stocks", "real estate stocks"],
+    "earnings": ["earnings", "revenue", "guidance", "profit", "margin"]
+  },
+  "topics": {
+    "ai_chips": ["ai chip", "gpu", "semiconductor", "artificial intelligence"],
+    "fed_rates": ["fed", "federal reserve", "interest rate", "treasury", "inflation"],
+    "gold": ["gold", "precious metal", "safe haven"],
+    "oil": ["oil", "crude", "brent", "wti", "gasoline", "jet fuel", "opec"],
+    "earnings": ["earnings", "revenue", "profit", "guidance"]
+  },
+  "market_terms": ["stock", "shares", "market", "investors", "earnings", "revenue", "guidance", "profit", "loss", "forecast", "upgrade", "downgrade", "price target", "fed", "inflation", "interest rate", "treasury", "gold", "oil", "crude", "brent", "wti", "opec", "inventory", "jet fuel", "commercial real estate", "loan-loss", "net interest income"],
+  "negative_terms": {
+    "bad": ["sports", "movie", "celebrity", "recipe", "travel", "shopping", "game review"],
+    "strong": ["sports", "movie", "celebrity", "recipe", "cooking", "fishing", "pet", "dog", "cat", "dog show", "soccer", "basketball", "football", "streaming", "video game", "gaming discount", "essential oil", "cooking oil", "olive oil", "oil-slick", "gardening", "farmers market", "fashion brand", "sneaker", "phone case"],
+    "weak": ["store opening", "opens new store", "retail store", "flagship store", "product discount", "coupon", "shopping event", "hiring event", "office opening", "campus opening", "local event", "local discount", "blog opinion", "rumor", "gossip", "jewelry fashion", "jewelry sale", "local fuel station", "gas station discount", "boutique", "campus art", "fan meetup", "custom vehicle wraps", "holiday sale", "charity race", "free coffee"],
+    "low_quality_surface": ["fashion", "sneaker", "recipe", "restaurant", "movie", "sports", "gaming", "fan meetup", "phone case"]
+  },
+  "query_profiles": {
+    "earnings": {
+      "triggers": ["earnings", "revenue", "profit", "margin", "results"],
+      "boost_terms": ["earnings", "revenue", "profit", "guidance", "quarterly", "fiscal", "results", "income", "eps"],
+      "weak_negative_terms": ["store opening", "retail store", "flagship store", "store"]
+    },
+    "macro": {
+      "triggers": ["interest rate", "fed", "inflation", "cpi", "fomc", "mortgage"],
+      "boost_terms": ["rate decision", "inflation", "cpi", "fomc", "powell", "yields", "treasury", "central bank", "tightening", "easing"],
+      "weak_negative_terms": ["local bank", "local finance", "savings account"]
+    },
+    "commodity": {
+      "triggers": ["gold", "oil", "commodity", "crude", "brent", "wti", "energy"],
+      "boost_terms": ["gold price", "bullion", "safe haven", "dollar", "yields", "supply", "inventory", "inventory draw", "crude", "brent", "wti", "opec", "production", "gasoline", "jet fuel", "refining", "fuel hedging", "energy equities"],
+      "weak_negative_terms": ["jewelry sale", "jewelry fashion", "cooking", "fashion"]
+    },
+    "tech_ai": {
+      "triggers": ["nvidia", "amd", "ai chip", "chip", "semiconductor", "gpu"],
+      "boost_terms": ["gpu", "ai accelerator", "data center", "semiconductor", "chip", "cuda", "foundry", "packaging"],
+      "weak_negative_terms": ["gaming discount", "gaming sale", "video game", "gamers", "consumer graphics card", "graphics cards"]
+    },
+    "banks": {
+      "triggers": ["bank", "banks", "credit", "loan", "deposit"],
+      "boost_terms": ["net interest income", "deposit costs", "credit losses", "commercial real estate", "loan-loss", "stress test"],
+      "weak_negative_terms": ["free coffee", "charity race", "branch opening"]
+    },
+    "ev": {
+      "triggers": ["tesla", "ev", "robotaxi", "deliveries"],
+      "boost_terms": ["deliveries", "robotaxi", "gross margin", "price cuts", "battery"],
+      "weak_negative_terms": ["fan meetup", "custom vehicle wraps"]
+    }
+  },
+  "context_rules": {
+    "tech_ai_topic": {"profiles": ["tech_ai"], "topics_any": ["ai_chips"]},
+    "oil_context": {"query_terms_any": ["oil", "crude", "energy"], "topics_any": ["oil"], "text_any": ["opec", "gasoline", "jet fuel", "brent", "wti", "crude"], "text_not": ["natural gas"]},
+    "gold_context": {"query_terms_any": ["gold"], "topics_any": ["gold"]},
+    "macro_context": {"profiles": ["macro"], "topics_any": ["fed_rates"], "events_any": ["macro"]},
+    "earnings_context": {"query_terms_any": ["earnings"], "topics_any": ["earnings"], "events_any": ["earnings"]},
+    "bank_context": {"query_terms_any": ["bank"], "text_any": ["bank", "banks", "net interest income", "credit losses"]}
+  },
+  "special_penalties": [
+    {"name": "natural_gas_for_oil_query", "query_terms_any": ["oil", "crude", "brent", "wti"], "query_terms_not": ["natural gas"], "text_any": ["natural gas"], "penalty": -8.0}
+  ]
+}

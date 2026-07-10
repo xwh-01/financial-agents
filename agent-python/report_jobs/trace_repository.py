@@ -192,6 +192,63 @@ def list_trace_steps(trace_id: int) -> list[dict[str, Any]]:
     return [_step_to_dict(row) for row in rows]
 
 
+def save_api_call_stats(
+    trace_id: int,
+    job_id: int | None,
+    report_id: int | None,
+    metrics: dict[str, dict[str, int]],
+) -> None:
+    init_db()
+    if not metrics:
+        return
+
+    rows = [
+        (
+            trace_id,
+            job_id,
+            report_id,
+            provider,
+            int(counts.get("logical_calls", 0)),
+            int(counts.get("http_attempts", 0)),
+        )
+        for provider, counts in metrics.items()
+    ]
+
+    with _connect() as conn:
+        conn.executemany(
+            """
+            INSERT INTO api_call_stats (
+                trace_id, job_id, report_id, provider, logical_calls, http_attempts
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+        conn.commit()
+
+
+def list_api_call_stats(trace_id: int) -> list[dict[str, Any]]:
+    init_db()
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT provider, logical_calls, http_attempts
+            FROM api_call_stats
+            WHERE trace_id = ?
+            ORDER BY provider ASC
+            """,
+            (trace_id,),
+        ).fetchall()
+    return [
+        {
+            "provider": row["provider"],
+            "logical_calls": row["logical_calls"],
+            "http_attempts": row["http_attempts"],
+        }
+        for row in rows
+    ]
+
+
 def _trace_to_dict(row) -> dict[str, Any]:
     return {
         "id": row["id"],

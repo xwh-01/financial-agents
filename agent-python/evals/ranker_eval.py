@@ -9,13 +9,15 @@ Usage:
 import csv
 import json
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from market_pulse.rankers.news_ranker import filter_and_rank_news
+from market_pulse.rankers.query_driven_ranker import coarse_filter
+from market_pulse.rankers.source_weight import get_source_weight
 from market_pulse.schemas import NewsItem
 
 DATASET_PATH = Path(__file__).resolve().parent / "ranker_eval_dataset.jsonl"
+DATASET_PATHS = (DATASET_PATH,)
 REPORT_JSON_PATH = Path(__file__).resolve().parent / "ranker_eval_report.json"
 SUMMARY_CSV_PATH = Path(__file__).resolve().parent / "ranker_eval_summary.csv"
 
@@ -28,16 +30,20 @@ WARN_IMPORTANT_RECALL = 0.8
 
 def load_dataset() -> list[dict]:
     samples: list[dict] = []
-    with open(DATASET_PATH, encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            sample = json.loads(line)
-            _validate_sample(sample)
-            samples.append(sample)
-    if len(samples) < 30:
-        print(f"[WARN] dataset has only {len(samples)} samples (< 30 recommended)")
+    for path in DATASET_PATHS:
+        if not path.exists():
+            continue
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                sample = json.loads(line)
+                sample["_dataset"] = path.name
+                _validate_sample(sample)
+                samples.append(sample)
+    if len(samples) < 100:
+        print(f"[WARN] dataset has only {len(samples)} samples (< 100 recommended)")
     return samples
 
 
@@ -49,7 +55,7 @@ def _validate_sample(sample: dict) -> None:
         )
     required = ("query", "title", "label")
     for field in required:
-        if not sample.get(field):
+        if field not in sample:
             raise ValueError(f"Missing field {field!r} in sample")
 
 
@@ -70,15 +76,21 @@ def build_news_items(samples: list[dict]) -> list[NewsItem]:
                 content=sample.get("description", ""),
                 source=sample.get("source_name", ""),
                 url=sample.get("url", ""),
-                published_at=sample.get("published_at", ""),
+                published_at=_eval_published_at(idx),
             )
         )
     return items
 
 
+def _eval_published_at(index: int) -> str:
+    """Keep ranker eval date-stable while still exercising freshness scoring."""
+    age_hours = 2 + (index % 60)
+    return (datetime.now(timezone.utc) - timedelta(hours=age_hours)).isoformat()
+
+
 def evaluate_query(query: str, samples: list[dict]) -> dict:
     items = build_news_items(samples)
-    ranked = filter_and_rank_news(items, min_score=0, query=query)
+    ranked = coarse_filter(items, query=query)
 
     ranked_indices = [item.index for item in ranked if item.index is not None]
     labels = [s["label"] for s in samples]
@@ -117,11 +129,11 @@ def evaluate_query(query: str, samples: list[dict]) -> dict:
         }
         if item:
             entry["relevance_score"] = round(item.relevance_score, 2)
-            entry["source_weight"] = round(item.source_weight, 2)
+            entry["source_weight"] = round(get_source_weight(item.source, item.url), 2)
             entry["freshness_score"] = round(item.freshness_score, 2)
             entry["negative_score"] = round(item.negative_score, 2)
-            entry["relevance_reasons"] = list(item.relevance_reasons)
-            entry["negative_reasons"] = list(item.negative_reasons)
+            entry["relevance_reasons"] = list(item.relevance_reasons) if item.relevance_reasons else []
+            entry["negative_reasons"] = list(item.negative_reasons) if item.negative_reasons else []
         top_ranked.append(entry)
 
     fp_in_top5 = [
@@ -207,7 +219,8 @@ def save_json_report(results: list[dict]) -> str:
     avg = _compute_overall(results)
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "dataset_path": str(DATASET_PATH),
+        "dataset_paths": [str(path) for path in DATASET_PATHS if path.exists()],
+        "published_at_policy": "eval samples are shifted to recent timestamps at runtime",
         "overall": avg,
         "warnings": {},
         "queries": results,
@@ -249,8 +262,10 @@ def _compute_overall(results: list[dict]) -> dict:
     if not results:
         return {}
     n = len(results)
+    total_samples = sum(r["total_items"] for r in results)
     return {
         "queries_evaluated": n,
+        "samples_evaluated": total_samples,
         "avg_precision_at_5": round(
             sum(r["precision_at_5"] for r in results) / n, 4
         ),
@@ -271,6 +286,7 @@ def main() -> None:
     print(f"Loaded {len(samples)} samples")
 
     groups = group_by_query(samples)
+    print(f"Loaded {len(groups)} query groups")
     results: list[dict] = []
 
     for query in sorted(groups.keys()):
@@ -282,6 +298,7 @@ def main() -> None:
     overall = _compute_overall(results)
     print("\n=== OVERALL AVERAGE ===")
     print(f"Queries evaluated: {overall['queries_evaluated']}")
+    print(f"Samples evaluated: {overall['samples_evaluated']}")
     print(f"Avg Precision@5:  {overall['avg_precision_at_5']:.2f}")
     print(f"Avg Precision@10: {overall['avg_precision_at_10']:.2f}")
     print(f"Avg Important Recall@10: {overall['avg_important_recall_at_10']:.2f}")

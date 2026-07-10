@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 
+from app.config import settings
 from report_jobs import repository
 from report_jobs import trace_repository
 from report_jobs.schemas import ReportJobResponse
@@ -118,7 +119,7 @@ async def _execute_job(job_id: int) -> ReportJobResponse:
         report_id, _ = await generate_watchlist_report(
             user_id=job["user_id"],
             watchlist_id=job["watchlist_id"],
-            max_items=8,
+            max_items=settings.market_pulse_max_analyze,
             report_job_id=job_id,
             report_trace_id=trace_id,
         )
@@ -176,6 +177,7 @@ def get_trace_for_user_job(user_id: int, job_id: int) -> dict | None:
     return {
         "trace": trace,
         "steps": trace_repository.list_trace_steps(trace["id"]),
+        "api_calls": trace_repository.list_api_call_stats(trace["id"]),
     }
 
 

@@ -5,6 +5,7 @@ from app.config import settings
 from app.errors import ExternalServiceError, ExternalServiceNotConfigured
 from clients.llm_client import chat_completion
 from clients.retry import get_json_with_retry
+from market_pulse.api_metrics import record_logical_call
 from market_pulse.schemas import NewsItem
 
 
@@ -51,11 +52,24 @@ async def search_marketaux_news(
     language: str = "en",
     translate_to_zh: bool = True,
 ) -> list[NewsItem]:
+    """
+    Search the MarketAux API for financial news articles.
+
+    Raises ExternalServiceNotConfigured if the API key or base URL are missing.
+    Falls back to a known query list (DEFAULT_MARKETAUX_QUERIES) when query is empty.
+    Supports optional Chinese translation of titles and content via LLM.
+
+    MarketAux is a supplementary source in the LangGraph pipeline — the primary
+    sources are the multi-provider RSS feeds. MarketAux can be disabled entirely
+    by setting COLLECT_ENABLE_MARKETAUX=false.
+    """
     if not settings.marketaux_api_key:
         raise ExternalServiceNotConfigured("MARKETAUX_API_KEY is not configured.")
 
     if not settings.marketaux_base_url:
         raise ExternalServiceNotConfigured("MARKETAUX_BASE_URL is not configured.")
+
+    record_logical_call("marketaux")
 
     params = _build_marketaux_params(query=query, limit=limit, language=language)
 

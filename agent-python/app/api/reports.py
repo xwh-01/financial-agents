@@ -92,4 +92,5 @@ async def report_trace_route(
     return {
         "trace": trace,
         "steps": trace_repository.list_trace_steps(trace["id"]),
+        "api_calls": trace_repository.list_api_call_stats(trace["id"]),
     }

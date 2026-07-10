@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     llm_retry_attempts: int = 3
     llm_retry_backoff_seconds: float = 1.0
 
+    embedding_api_key: str = ""
+    embedding_base_url: str = ""
+    embedding_model: str = "text-embedding-3-small"
+
     company_feeds_path: str = "config/company_feeds.json"
     market_feeds_path: str = "config/market_feeds.json"
     enable_company_rss: bool = True
@@ -52,8 +56,14 @@ class Settings(BaseSettings):
     report_job_scan_seconds: int = 60
     report_job_scan_interval_seconds: int = 5
     report_job_stale_seconds: int = 1800
-    market_pulse_analysis_concurrency: int = 3
+    market_pulse_analysis_concurrency: int = 6
     market_pulse_analysis_timeout_seconds: int = 90
+    # Max news kept after rank_news and sent to per-item LLM analysis.
+    market_pulse_max_analyze: int = 50
+    # RSS-first collection. Marketaux is an optional supplement that is OFF by
+    # default because its free tier rate-limits quickly (each run fires ~21
+    # queries) and can starve the candidate pool. Set true only with a paid tier.
+    collect_enable_marketaux: bool = False
 
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE),
@@ -62,6 +72,14 @@ class Settings(BaseSettings):
     )
 
     def model_post_init(self, __context: object) -> None:
+        """
+        Auto-fallback from DeepSeek to OpenAI-compatible settings.
+
+        If no standalone LLM key is provided but a DeepSeek key exists,
+        reuses it. When llm_provider is "deepseek", auto-derives the
+        chat completions URL from deepseek_base_url and uses the
+        deepseek_model instead of the default gpt-4o-mini.
+        """
         if _is_empty_or_placeholder(self.llm_api_key) and not _is_empty_or_placeholder(
             self.deepseek_api_key
         ):

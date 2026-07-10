@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,6 +16,8 @@ from clients.retry import get_bytes_with_retry
 from clients.marketaux_client import collect_latest_marketaux_news
 from app.config import settings
 from market_pulse.schemas import NewsItem
+
+logger = logging.getLogger(__name__)
 
 
 GOOGLE_NEWS_RSS_TEMPLATE = (
@@ -47,13 +50,13 @@ def load_company_feeds() -> list[CompanyFeedConfig]:
     path = _config_path()
 
     if not path.exists():
-        print(f"[company-feeds] config not found: {path}")
+        logger.warning("company-feeds config not found: %s", path)
         return []
 
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(raw, list):
-            print(f"[company-feeds] invalid config root, expected list: {path}")
+            logger.warning("company-feeds invalid config root, expected list: %s", path)
             return []
 
         configs: list[CompanyFeedConfig] = []
@@ -79,7 +82,7 @@ def load_company_feeds() -> list[CompanyFeedConfig]:
         return configs
 
     except Exception as exc:
-        print(f"[company-feeds] failed to load {path}: {exc}")
+        logger.warning("company-feeds failed to load %s: %s", path, exc)
         return []
 
 
@@ -87,13 +90,13 @@ def load_market_feeds() -> list[MarketFeedConfig]:
     path = _market_config_path()
 
     if not path.exists():
-        print(f"[market-feeds] config not found: {path}")
+        logger.warning("market-feeds config not found: %s", path)
         return []
 
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(raw, list):
-            print(f"[market-feeds] invalid config root, expected list: {path}")
+            logger.warning("market-feeds invalid config root, expected list: %s", path)
             return []
 
         configs: list[MarketFeedConfig] = []
@@ -112,7 +115,7 @@ def load_market_feeds() -> list[MarketFeedConfig]:
         return configs
 
     except Exception as exc:
-        print(f"[market-feeds] failed to load {path}: {exc}")
+        logger.warning("market-feeds failed to load %s: %s", path, exc)
         return []
 
 
@@ -187,16 +190,17 @@ async def collect_company_market_news(
 ) -> list[NewsItem]:
     all_items: list[NewsItem] = []
 
-    try:
-        all_items.extend(
-            await collect_latest_marketaux_news(
-                limit=limit,
-                language=language,
-                translate_to_zh=translate_to_zh,
+    if settings.collect_enable_marketaux:
+        try:
+            all_items.extend(
+                await collect_latest_marketaux_news(
+                    limit=limit,
+                    language=language,
+                    translate_to_zh=translate_to_zh,
+                )
             )
-        )
-    except Exception as exc:
-        print(f"[source-aggregator] Marketaux failed: {exc}")
+        except Exception as exc:
+            print(f"[source-aggregator] Marketaux failed: {exc}")
 
     configs = load_company_feeds()
     market_configs = load_market_feeds()
@@ -335,7 +339,7 @@ def _add_company_tickers(
     for config in configs:
         company = config["company"].lower()
         ticker = config["ticker"].lower()
-        if company in text or _contains_ticker(text, ticker):
+        if _contains_company_name(text, company) or _contains_ticker(text, ticker):
             if config["ticker"] not in matched:
                 matched.append(config["ticker"])
 
@@ -344,6 +348,13 @@ def _add_company_tickers(
 
 def _contains_ticker(text: str, ticker: str) -> bool:
     return re.search(rf"\b{re.escape(ticker)}\b", text, re.IGNORECASE) is not None
+
+
+def _contains_company_name(text: str, company: str) -> bool:
+    """Check if a company name appears as a whole word/phrase in the text."""
+    if not company:
+        return False
+    return re.search(rf"\b{re.escape(company)}\b", text, re.IGNORECASE) is not None
 
 
 def _dedupe_strings(items: list[str]) -> list[str]:

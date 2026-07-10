@@ -6,6 +6,17 @@ from market_pulse.utils.news_normalizer import make_content_hash, normalize_titl
 
 
 def dedupe_news(news_items: list[NewsItem]) -> list[NewsItem]:
+    """
+    Remove duplicate news items by URL, title, and content hash.
+
+    Three-level deduplication:
+      1. Normalized URL (stripped tracking params: utm_*, fbclid, gclid, etc.)
+      2. Normalized title (lowercased, whitespace-collapsed, non-alphanumeric stripped)
+      3. Content hash (SHA256 of normalized title + URL)
+
+    When a duplicate is detected, the item with the higher source weight wins.
+    Ties break by recency (newer published_at).
+    """
     seen_urls: dict[str, int] = {}
     seen_titles: dict[str, int] = {}
     seen_hashes: dict[str, int] = {}
@@ -33,6 +44,9 @@ def dedupe_news(news_items: list[NewsItem]) -> list[NewsItem]:
             resolved = _resolve_duplicate(news_items, conflict_idx, idx)
             if resolved != idx:
                 continue
+            # New item wins — swap keep entries and update dedup stores.
+            keep.pop(conflict_idx, None)
+            keep[idx] = idx
             for key, store in (
                 (norm_url, seen_urls),
                 (norm_title, seen_titles),
@@ -85,6 +99,13 @@ def filter_fresh_news(
     news_items: list[NewsItem],
     max_age_hours: int = 72,
 ) -> list[NewsItem]:
+    """
+    Keep only items within max_age_hours of the current time.
+
+    Items with unparseable timestamps are kept (assumed fresh), while items
+    older than the threshold are dropped. This is a simple recency gate,
+    separate from the more nuanced freshness scoring used in ranking.
+    """
     now = datetime.now(timezone.utc)
     result: list[NewsItem] = []
     for item in news_items:

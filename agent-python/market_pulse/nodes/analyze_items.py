@@ -1,6 +1,7 @@
 import asyncio
 
 from app.config import settings
+from market_pulse.analyzers.market_analyzer import get_market_failures, init_market_cache
 from market_pulse.schemas import AnalyzeRequest, DailyNewsAnalysis, WorkflowResult
 from market_pulse.state import MarketPulseGraphState
 from market_pulse.workflows.single_news import run_single_news_analysis
@@ -10,8 +11,26 @@ from safety.compliance import sanitize_text
 async def analyze_items_node(
     state: MarketPulseGraphState,
 ) -> MarketPulseGraphState:
-    """Run single-news analysis for each selected news item."""
+    """
+    Run single-news analysis concurrently for each selected news item.
+
+    Steps per item:
+      1. Resolve entities, events, and risk (via LLM in single_news workflow)
+      2. Link entities to tickers (direct, related peers, ETFs)
+      3. Fetch market data for linked tickers (Alpha Vantage, request-level cache)
+      4. Generate per-item report and run compliance check
+
+    Concurrency is controlled by market_pulse_analysis_concurrency, each item
+    has its own timeout. Failed items are recorded with status="failed" but
+    don't block the pipeline.
+
+    After all items complete:
+      - overall_risk_level is the max risk level across all results
+      - market_data_error message is attached if Alpha Vantage failures occurred
+    """
     print("[langgraph-market] analyze_items")
+    # Initialize the request-level market data cache before concurrent analysis
+    init_market_cache()
     selected_news = list(state.get("selected_news", []))
     concurrency = max(1, settings.market_pulse_analysis_concurrency)
     semaphore = asyncio.Semaphore(concurrency)
@@ -28,6 +47,7 @@ async def analyze_items_node(
         "analyzed_news": analyzed_news,
         "completed_results": completed_results,
         "overall_risk_level": _overall_risk_level(completed_results),
+        "error_message": _market_error_message() or None,
     }
 
 
@@ -79,3 +99,13 @@ def _overall_risk_level(results: list[WorkflowResult]) -> str:
             level = candidate
 
     return level
+
+
+def _market_error_message() -> str:
+    failures = get_market_failures()
+    if not failures:
+        return ""
+    return (
+        f"Market data unavailable for: {', '.join(failures)}. "
+        "Check Alpha Vantage API key or rate limits."
+    )

@@ -1,6 +1,7 @@
 from app.config import settings
 from app.errors import ExternalServiceError, ExternalServiceNotConfigured
 from clients.retry import get_json_with_retry
+from market_pulse.api_metrics import record_logical_call
 
 
 async def fetch_alpha_vantage_daily(ticker: str) -> list[dict]:
@@ -17,6 +18,8 @@ async def fetch_alpha_vantage_daily(ticker: str) -> list[dict]:
 
     if not settings.alpha_vantage_base_url:
         raise ExternalServiceNotConfigured("ALPHA_VANTAGE_BASE_URL is not configured.")
+
+    record_logical_call("alpha_vantage")
 
     params = {
         "function": "TIME_SERIES_DAILY",
@@ -72,16 +75,33 @@ def normalize_alpha_vantage_daily(data: dict) -> list[dict]:
         if close is None:
             continue
 
+        try:
+            close_val = float(close)
+            volume_val = _safe_float(volume)
+        except (ValueError, TypeError):
+            continue
+
         result.append(
             {
                 "date": str(date)[:10],
-                "close": float(close),
-                "volume": int(float(volume)),
+                "close": close_val,
+                "volume": volume_val,
             }
         )
 
     result.sort(key=lambda x: x["date"], reverse=True)
     return result
+
+
+def _safe_float(value) -> int:
+    """Parse volume-like values, stripping commas and handling non-numeric strings."""
+    if value is None:
+        return 0
+    text = str(value).replace(",", "").strip()
+    try:
+        return int(float(text))
+    except (ValueError, TypeError):
+        return 0
 
 
 def calculate_returns(prices: list[dict]) -> dict:

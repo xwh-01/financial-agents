@@ -10,6 +10,7 @@ from market_pulse.analyzers.report_generator import (
     build_market_signals,
     predict_ticker_trends,
 )
+from market_pulse.analyzers.market_analyzer import init_market_cache
 from market_pulse.graph import run_langgraph_market_pulse as _run_langgraph_market_pulse
 from market_pulse.rankers.news_ranker import filter_and_rank_news
 from market_pulse.rankers.news_ranker import freshness_score, parse_news_time
@@ -51,6 +52,7 @@ async def search_news_items(request: SearchNewsRequest) -> list[NewsItem]:
 async def run_batch_news_analysis(
     request: BatchAnalyzeNewsRequest,
 ) -> BatchAnalyzeNewsResponse:
+    init_market_cache()
     items = await search_marketaux_news(
         query=request.query,
         limit=request.limit,
@@ -98,6 +100,7 @@ async def run_batch_news_analysis(
 
 
 async def run_daily_brief(request: DailyBriefRequest) -> DailyBriefResponse:
+    init_market_cache()
     news_items = []
     seen_urls = set()
     seen_titles = set()
@@ -178,6 +181,15 @@ async def run_daily_brief(request: DailyBriefRequest) -> DailyBriefResponse:
 
 
 async def run_market_pulse(request: MarketPulseRequest) -> MarketPulseResponse:
+    """
+    Legacy (non-LangGraph) market pulse analysis pipeline.
+
+    Flow: collect RSS -> rank -> analyze per-item -> aggregate trends/signals/report.
+
+    This is the legacy path kept for compatibility. The recommended demo entry
+    point is run_langgraph_market_pulse (fewer candidates, faster, better ranking).
+    """
+    init_market_cache()
     print("[market-pulse] start")
     print(
         "[market-pulse] request:",
@@ -312,6 +324,7 @@ async def run_fresh_opportunity_scan(
     max_items: int = 10,
 ) -> MarketPulseResponse:
     print("[opportunity-scan] start")
+    init_market_cache()
     candidate_news = await collect_fin_rss_news(limit=limit)
     deduped_news = dedupe_news(candidate_news)
     fresh_news = filter_fresh_news(deduped_news, max_age_hours=72)

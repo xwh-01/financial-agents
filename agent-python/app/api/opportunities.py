@@ -1,6 +1,7 @@
+import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from auth.dependencies import get_current_user
@@ -8,6 +9,7 @@ from auth.schemas import UserResponse
 from market_pulse.service import run_fresh_opportunity_scan
 from reports.service import save_opportunity_report
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -23,7 +25,14 @@ async def scan_opportunities_route(
     current_user: UserResponse = Depends(get_current_user),
 ):
     req = request or OpportunityScanRequest()
-    result = await run_fresh_opportunity_scan(limit=req.limit, max_items=req.max_items)
+    try:
+        result = await run_fresh_opportunity_scan(limit=req.limit, max_items=req.max_items)
+    except Exception as exc:
+        logger.error("opportunity scan failed for user=%s: %s", current_user.id, exc)
+        raise HTTPException(
+            status_code=502,
+            detail="News collection or analysis failed. Check RSS/news sources or try again later.",
+        ) from exc
 
     payload = result.model_dump()
     payload["query"] = "fresh financial news opportunity scan"
@@ -35,6 +44,12 @@ async def scan_opportunities_route(
         "不构成任何投资建议、买卖建议或收益承诺。"
     )
 
-    report_id = save_opportunity_report(user_id=current_user.id, result=payload)
-    payload["report_id"] = report_id
+    try:
+        report_id = save_opportunity_report(user_id=current_user.id, result=payload)
+        payload["report_id"] = report_id
+    except Exception as exc:
+        logger.error("failed to save opportunity report for user=%s: %s", current_user.id, exc)
+        # Report is generated but couldn't be persisted — still return the payload
+        payload["report_id"] = None
+
     return payload

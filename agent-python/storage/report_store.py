@@ -172,6 +172,23 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS api_call_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trace_id INTEGER,
+                job_id INTEGER,
+                report_id INTEGER,
+                provider TEXT NOT NULL,
+                logical_calls INTEGER NOT NULL DEFAULT 0,
+                http_attempts INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (trace_id) REFERENCES report_traces(id),
+                FOREIGN KEY (job_id) REFERENCES report_jobs(id),
+                FOREIGN KEY (report_id) REFERENCES reports(id)
+            )
+            """
+        )
         _ensure_indexes(conn)
         conn.commit()
 
@@ -312,6 +329,14 @@ def _ensure_indexes(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_report_trace_steps_trace_id
         ON report_trace_steps(trace_id, id)
         """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_api_call_stats_trace_id
+        ON api_call_stats(trace_id, id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_api_call_stats_report_id
+        ON api_call_stats(report_id, id)
+        """,
     ]
     for statement in indexes:
         conn.execute(statement)
@@ -371,7 +396,7 @@ def _ensure_report_jobs_columns(conn: sqlite3.Connection) -> None:
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
-    return {
+    result: dict[str, Any] = {
         "id": row["id"],
         "query": row["query"],
         "news_count": row["news_count"],
@@ -379,3 +404,11 @@ def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "summary": row["summary"],
         "created_at": row["created_at"],
     }
+    # Include optional columns that may have been added via migrations.
+    for key in ("user_id", "watchlist_id", "title", "report_type",
+                 "compliance_status", "disclaimer", "report_json"):
+        try:
+            result[key] = row[key]
+        except (KeyError, IndexError):
+            pass
+    return result

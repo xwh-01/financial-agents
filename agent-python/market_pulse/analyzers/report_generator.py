@@ -24,9 +24,17 @@ REPORT_SYSTEM_PROMPT = """
 你是一个金融舆情分析报告生成助手。
 你的任务是根据结构化分析结果，生成中文舆情事件市场影响分析报告。
 报告必须包含以下五个部分：一、事件摘要；二、关联资产；三、市场表现；四、风险提示；五、免责声明。
-强制要求：
-- 必须包含“不构成投资建议”。
-- 不得出现“建议买入”“建议卖出”“推荐买入”“推荐卖出”“必涨”“稳赚”“保证收益”等表达。
+
+写作要求：
+- 事件摘要：用 2-4 句话概括新闻事件的核心内容，清晰说明发生了什么、涉及哪些关键主体。
+- 关联资产：列出直接相关的股票代码和间接相关的产业链标的，说明关联原因。
+- 市场表现：明确写出每个股票的具体涨跌幅数据（如 +8.1%、-1.2%）。
+  如果某只股票的行情数据标注为 "数据暂不可用"，请写为 "数据暂不可用"，
+  不要编造数字，不要用"约""大概"等模糊表述。
+- 风险提示：基于事件性质给出 1-3 条具体风险点，不要泛泛而谈。
+- 语言简洁专业，避免"值得关注""可以看好"等模糊表达。
+- 必须包含"不构成投资建议"。
+- 不得出现"建议买入""建议卖出""推荐买入""推荐卖出""必涨""稳赚""保证收益"等表达。
 - 不要把时间相关性说成因果关系。
 - 不要输出交易指令。
 """
@@ -62,6 +70,19 @@ async def generate_report(
     market_metrics: MarketMetrics,
     risk_result: RiskResult,
 ) -> ReportResult:
+    """
+    Generate a per-item Chinese-language analysis report via LLM.
+
+    The report follows a fixed 5-section structure:
+      1. Event summary (2-4 sentence narrative)
+      2. Related assets (direct tickers + indirect industry chain linkages)
+      3. Market performance (actual return data, or "data unavailable" if missing)
+      4. Risk notes (1-3 specific, concrete risk points)
+      5. Disclaimer (mandatory "not investment advice" statement)
+
+    The system prompt explicitly forbids: buy/sell recommendations, fabricated
+    numbers, causal claims from correlation, and vague forward-looking statements.
+    """
     user_prompt = build_report_user_prompt(
         entity_result.model_dump(),
         event_result.model_dump(),
@@ -225,49 +246,6 @@ def _legacy_build_market_pulse_report(
         analyzed_news or [],
     )
 
-    if not recommendations:
-        return (
-            "实时市场新闻扫描未发现足够明确的股票关注信号。\n\n"
-            "免责声明：本报告仅用于舆情事件分析与学习展示，不构成投资建议。"
-        )
-
-    lines = [
-        "实时市场新闻脉冲",
-        "",
-        "以下内容是基于最新新闻流、事件情绪、影响强度和风险因子的研究型关注建议，不是买卖指令。",
-        "",
-        "关注建议",
-    ]
-
-    for idx, item in enumerate(recommendations, start=1):
-        lines.extend(
-            [
-                f"{idx}. {item.ticker} - {item.recommendation_type}",
-                f"趋势倾向：{item.direction}",
-                f"时间窗口：{item.time_window}",
-                f"置信度：{item.confidence:.2f}",
-                f"风险等级：{item.risk_level}",
-                f"理由：{item.rationale}",
-            ]
-        )
-        if item.watch_points:
-            lines.append("观察点：")
-            lines.extend([f"- {point}" for point in item.watch_points])
-        if item.risk_flags:
-            lines.append(f"风险标记：{', '.join(item.risk_flags)}")
-        lines.append("")
-
-    if trends:
-        lines.append("趋势概要")
-        for trend in trends[:10]:
-            lines.append(
-                f"- {trend.ticker}: {trend.direction}, 影响强度 {trend.impact_score:.2f}, 新闻数 {trend.news_count}"
-            )
-        lines.append("")
-
-    lines.append("免责声明：本报告仅用于舆情事件分析与学习展示，不构成投资建议。")
-    return "\n".join(lines)
-
 
 def _build_structured_market_pulse_report(
     trends: list[TickerTrend],
@@ -371,34 +349,6 @@ def _build_structured_market_pulse_report(
     return "\n".join(lines)
 
 
-def _build_final_wind_summary(recommendations: list[FinancialRecommendation]) -> str:
-    if not recommendations:
-        return "当前缺少足够明确的个股信号，整体风向以观望为主。"
-
-    positive = [item.ticker for item in recommendations if "正" in item.direction]
-    negative = [item.ticker for item in recommendations if "负" in item.direction]
-    high_risk = [item.ticker for item in recommendations if item.risk_level == "high"]
-
-    parts = []
-    if positive:
-        parts.append("偏正面信号集中在：" + "、".join(positive[:5]))
-    if negative:
-        parts.append("偏负面信号集中在：" + "、".join(negative[:5]))
-    if high_risk:
-        parts.append("需要优先复核高风险标的：" + "、".join(high_risk[:5]))
-    if not parts:
-        parts.append("多数信号仍偏中性，适合继续观察新闻后续发展。")
-    return "；".join(parts) + "。"
-
-
-def _wind_label(item: FinancialRecommendation) -> str:
-    if item.risk_level == "high":
-        return "风险优先，短期应谨慎观察"
-    if "正" in item.direction:
-        return "偏正面，但仍需等待后续新闻和市场数据确认"
-    if "负" in item.direction:
-        return "偏负面，重点观察风险是否扩散"
-    return "中性观望，信号强度尚不足以形成明确方向"
 
 
 def _build_news_evidence(
@@ -447,45 +397,6 @@ def _match_news_evidence(
     return result
 
 
-def _build_news_reason(result: WorkflowResult) -> str:
-    event = result.event_result
-    risk = result.risk_result
-    parts = []
-
-    if event and event.summary:
-        parts.append(event.summary)
-    if event:
-        parts.append(
-            f"事件情绪={event.sentiment}，影响强度={event.impact_score:.2f}，置信度={event.confidence:.2f}"
-        )
-    if risk and risk.risk_flags:
-        parts.append("风险因素=" + "、".join(risk.risk_flags[:4]))
-    if not parts and result.report:
-        parts.append(_extract_report_title(result.report))
-
-    return "；".join(parts) if parts else "该新闻被分析流程识别为相关信号。"
-
-
-def _build_overall_summary(
-    trends: list[TickerTrend],
-    recommendations: list[FinancialRecommendation],
-) -> str:
-    high_risk_count = sum(1 for item in recommendations if item.risk_level == "high")
-    tickers = "、".join(item.ticker for item in recommendations[:5])
-    if high_risk_count:
-        return (
-            f"本次扫描识别到 {len(recommendations)} 个可关注标的，其中 {high_risk_count} 个存在高风险标记。"
-            f"优先关注：{tickers}。"
-        )
-    return (
-        f"本次扫描识别到 {len(recommendations)} 个可关注标的。"
-        f"主要信号集中在：{tickers}。"
-    )
-
-
-def _generated_time_label() -> str:
-    value = datetime.now(timezone.utc).astimezone()
-    return value.strftime("%Y-%m-%d %H:%M %Z")
 
 
 def _build_ticker_trend(ticker: str, results: list[WorkflowResult]) -> TickerTrend:
@@ -585,7 +496,7 @@ def _direction_from_score(score: float) -> str:
         return "偏正面"
     if score <= -0.18:
         return "偏负面"
-    return "中性/观望"
+    return "中性观望"
 
 
 def _market_confirmation(
@@ -636,15 +547,6 @@ def _summarize_confirmation(labels: list[str]) -> str:
     return "未见明显市场确认或未配置行情数据"
 
 
-def _build_recommendation_rationale(trend: TickerTrend) -> str:
-    if trend.reasons:
-        return trend.reasons[0]
-    return (
-        f"{trend.ticker} 在最新新闻流中出现 {trend.news_count} 条相关信号，"
-        f"综合趋势为{trend.direction}。"
-    )
-
-
 def _max_risk(current: str, candidate: str) -> str:
     rank = {"low": 0, "medium": 1, "high": 2}
     return candidate if rank.get(candidate, 0) > rank.get(current, 0) else current
@@ -669,17 +571,6 @@ def _dedupe(items: list[str]) -> list[str]:
     return result
 
 
-# Clean report-format overrides. They keep the existing scoring and data flow,
-# but present Market Pulse output as a user-facing brief instead of Markdown.
-REPORT_SYSTEM_PROMPT = """
-你是一个财经新闻影响分析助手。请根据结构化分析结果，生成中文、面向普通用户的事件影响说明。
-
-要求：
-1. 不使用 Markdown 标题、代码块或表格。
-2. 用自然段说明：事件发生了什么、可能影响哪些资产、影响方向和风险点。
-3. 不输出交易指令，不使用“建议买入/卖出”“必涨”“稳赚”“保证收益”等表达。
-4. 必须包含“仅供研究参考，不构成投资建议”的免责声明。
-"""
 
 
 def build_report_user_prompt(
@@ -689,19 +580,64 @@ def build_report_user_prompt(
     market_metrics: dict,
     risk_result: dict,
 ) -> str:
+    market_lines = _format_market_metrics(market_metrics)
+
     return f"""
-请基于以下结构化结果生成一段用户可读的中文影响分析。
+请基于以下结构化结果生成中文影响分析报告。
 
 实体识别结果：{entity_result}
 
 事件分析结果：{event_result}
 
-股票关联结果：{ticker_links}
+股票关联结果：
+  - 直接关联: {ticker_links.get("direct_tickers", [])}
+  - 产业链关联: {ticker_links.get("related_tickers", [])}
+  - 相关 ETF: {ticker_links.get("etfs", [])}
+  - 关联原因: {ticker_links.get("reason", "")}
 
-市场表现结果：{market_metrics}
+市场表现：
+{chr(10).join(market_lines)}
 
-风险判断结果：{risk_result}
+风险判断：{risk_result.get("risk_level", "low")}
+风险标记：{risk_result.get("risk_flags", [])}
+风险原因：{risk_result.get("reason", "")}
 """
+
+
+def _format_market_metrics(market_metrics: dict) -> list[str]:
+    metrics = market_metrics.get("metrics", {}) if isinstance(market_metrics, dict) else {}
+    if not metrics:
+        return ["  无行情数据。"]
+
+    lines: list[str] = []
+    for ticker, m in sorted(metrics.items()):
+        m_dict = m if isinstance(m, dict) else m.model_dump() if hasattr(m, "model_dump") else {}
+        items: list[str] = []
+        if m_dict.get("return_1d") is not None:
+            items.append(f"1日 {_pct(m_dict['return_1d'])}")
+        if m_dict.get("return_3d") is not None:
+            items.append(f"3日 {_pct(m_dict['return_3d'])}")
+        if m_dict.get("return_7d") is not None:
+            items.append(f"7日 {_pct(m_dict['return_7d'])}")
+        if m_dict.get("volume_change") is not None:
+            items.append(f"成交量 {_pct(m_dict['volume_change'])}")
+        if m_dict.get("relative_to_spy_3d") is not None:
+            items.append(f"vs SPY 3日 {_pct(m_dict['relative_to_spy_3d'])}")
+
+        if items:
+            lines.append(f"  {ticker}: {', '.join(items)}")
+        else:
+            lines.append(f"  {ticker}: 数据暂不可用")
+
+    if not lines:
+        return ["  无行情数据。"]
+
+    return lines
+
+
+def _pct(value: float) -> str:
+    sign = "+" if value >= 0 else ""
+    return f"{sign}{round(value * 100, 2)}%"
 
 
 def build_market_pulse_report(
@@ -1122,3 +1058,51 @@ def _generated_time_label() -> str:
 
     value = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
     return value.strftime("%Y-%m-%d %H:%M 北京时间")
+
+
+SYNTHESIS_SYSTEM_PROMPT = """
+你是一个资深财经编辑。你的任务是把当日多条市场新闻合并为一篇全局市场总结。
+
+写作要求：
+- 提炼今日最重要的 2-3 个市场主题，按重要性排序。
+- 不要逐条罗列新闻，要跨事件寻找关联和脉络。
+- 指出不同事件之间的潜在联系（例如：财报超预期 → 提振行业信心 → 利率政策影响估值）。
+- 点出值得关注的风险点和不确定性。
+- 语言简洁有力，约 200-300 字，直接输出正文，不要加标题。
+- 不要使用"建议""推荐""可以买入"等表述。
+"""
+
+
+async def synthesize_report(
+    single_reports: list[str],
+    trends: list[TickerTrend],
+) -> str:
+    if not single_reports:
+        return ""
+
+    report_texts = "\n\n---\n\n".join(
+        f"新闻 {i}: {r}" for i, r in enumerate(single_reports, start=1) if r
+    )
+
+    trend_lines: list[str] = []
+    for trend in trends[:5]:
+        trend_lines.append(
+            f"{trend.ticker}: direction={trend.direction}, "
+            f"confidence={trend.confidence:.2f}, risk={trend.risk_level}"
+        )
+    trend_text = "\n".join(trend_lines) if trend_lines else "无趋势数据"
+
+    user_prompt = f"""以下是当日 {len(single_reports)} 条市场新闻的独立分析：
+
+{report_texts}
+
+当日主要标的趋势汇总：
+{trend_text}
+
+请综合以上信息，写一篇约 200-300 字的中文全局市场总结。"""
+
+    try:
+        content = await chat_completion(SYNTHESIS_SYSTEM_PROMPT, user_prompt)
+        return content.strip()
+    except Exception:
+        return ""

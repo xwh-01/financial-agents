@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from app.errors import ExternalServiceError
+from market_pulse.api_metrics import record_http_attempt_for_error_type
 
 
 @dataclass
@@ -81,6 +82,7 @@ async def get_with_retry(
 
     for attempt in range(attempts):
         try:
+            record_http_attempt_for_error_type(error_type)
             async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
                 response = await client.get(url, params=params, headers=headers)
             if response.status_code == 429:

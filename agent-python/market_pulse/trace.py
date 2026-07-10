@@ -199,6 +199,35 @@ def _output_count(node_name: str, result: dict[str, Any]) -> int:
     return 0
 
 
+def _node_metadata(
+    node_name: str,
+    state: dict[str, Any],
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "candidate_news_count": len(result.get("candidate_news") or state.get("candidate_news") or []),
+        "selected_news_count": len(result.get("selected_news") or state.get("selected_news") or []),
+        "analyzed_news_count": len(result.get("analyzed_news") or state.get("analyzed_news") or []),
+    }
+    if node_name == "collect_news":
+        stats = result.get("collect_stats") or state.get("collect_stats") or {}
+        if stats:
+            metadata["collect_stats"] = stats
+            metadata["raw_candidate_count"] = stats.get("raw_candidate_count")
+    if node_name == "rank_news":
+        metadata["ranked_news_count"] = len(result.get("ranked_news") or [])
+    if node_name == "risk_route":
+        metadata["overall_risk_level"] = result.get("overall_risk_level") or state.get("overall_risk_level")
+    if node_name == "risk_review":
+        metadata["risk_review_notes_count"] = len(result.get("risk_review_notes") or [])
+    if node_name == "generate_report":
+        payload = result.get("result") or {}
+        metadata["market_signal_count"] = len(payload.get("market_signals") or [])
+        metadata["model_name"] = payload.get("model_name") or "local_or_configured"
+        metadata["compliance_status"] = payload.get("compliance_status")
+    return metadata
+
+
 def _raise_if_cancelled(job_id: int) -> None:
     from report_jobs import repository
 
@@ -262,23 +291,4 @@ def _finish_report_step(
     )
 
 
-def _node_metadata(
-    node_name: str,
-    state: dict[str, Any],
-    result: dict[str, Any],
-) -> dict[str, Any]:
-    metadata: dict[str, Any] = {
-        "candidate_news_count": len(result.get("candidate_news") or state.get("candidate_news") or []),
-        "selected_news_count": len(result.get("selected_news") or state.get("selected_news") or []),
-        "analyzed_news_count": len(result.get("analyzed_news") or state.get("analyzed_news") or []),
-    }
-    if node_name == "risk_route":
-        metadata["overall_risk_level"] = result.get("overall_risk_level") or state.get("overall_risk_level")
-    if node_name == "risk_review":
-        metadata["risk_review_notes_count"] = len(result.get("risk_review_notes") or [])
-    if node_name == "generate_report":
-        payload = result.get("result") or {}
-        metadata["market_signal_count"] = len(payload.get("market_signals") or [])
-        metadata["model_name"] = payload.get("model_name") or "local_or_configured"
-        metadata["compliance_status"] = payload.get("compliance_status")
-    return metadata
+

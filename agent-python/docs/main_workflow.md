@@ -140,3 +140,17 @@ report
 ## 面试时推荐说法
 
 “这是一个由 LangGraph 编排的财经新闻 Market Pulse Agent。`market_pulse/analyzers` 目录中的模块是分析能力模块，不是多个独立乱跑的 Agent；主流程统一由 `market_pulse/graph.py` 编排。单条新闻分析流程沉淀在 `market_pulse/workflows/single_news.py`，由 API service 和 LangGraph 节点共同复用。”
+
+## Rank News Pipeline
+
+`rank_news` is the deterministic top-layer selector before LLM analysis:
+
+1. `collect_news` provides roughly 100-300 candidate articles.
+2. `hard_filter` removes stale articles, empty titles, duplicates, and obvious low-quality noise.
+3. The ranker parses the watchlist query into separate intents such as tickers, topics, macro, commodities, and custom notes.
+4. Each intent recalls its own Top 20 candidates.
+5. Recalled candidates are merged and deduplicated.
+6. `hybrid_score` ranks by lexical query hits, ticker/topic/event matches, query profile boosts, source weight, freshness, and negative-context penalties.
+7. `coverage selector` chooses the final Top 8-10 articles with ticker/topic/source diversity before `analyze_items`.
+
+The ranker stays offline and explainable by default. Rules and weights live in `agent-python/config/ranker_rules.json`; the code path is `market_pulse/rankers/news_ranker.py`.

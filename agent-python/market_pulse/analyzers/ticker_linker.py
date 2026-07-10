@@ -1,5 +1,6 @@
 from market_pulse.schemas import EntityResult, EventResult, TickerLinks
 from market_pulse.analyzers.ticker_catalog import (
+    get_sector_peers,
     map_companies_to_tickers,
     map_topics_to_etfs,
 )
@@ -9,8 +10,19 @@ def link_tickers(
     entity_result: EntityResult,
     event_result: EventResult,
 ) -> TickerLinks:
-    ticker_links = link_known_entities(entity_result)
+    """
+    Map resolved entities to market instruments (tickers, related peers, ETFs).
 
+    Steps:
+      1. Use entity_result.tickers directly as direct tickers
+      2. Map company names -> tickers via ticker_catalog
+      3. Map topics -> ETFs via ticker_catalog
+      4. For each direct ticker, find sector peers and ETFs
+
+    If the event_type is "unknown", confidence is slightly reduced since the
+    ticker mapping may be less relevant.
+    """
+    ticker_links = link_known_entities(entity_result)
     confidence = ticker_links.confidence
 
     if event_result.event_type == "unknown":
@@ -31,17 +43,15 @@ def link_known_entities(entity_result: EntityResult) -> TickerLinks:
     etfs: list[str] = []
     reasons: list[str] = []
 
-    persons = set(entity_result.persons)
-    companies = set(entity_result.companies)
     tickers = set(entity_result.tickers)
 
     for ticker in sorted(tickers):
         direct.append(ticker)
 
-    mapped_tickers = map_companies_to_tickers(entity_result.companies)
-    if mapped_tickers:
-        direct.extend(mapped_tickers)
-        reasons.append("根据公司名称映射到股票代码：" + ", ".join(mapped_tickers))
+    mapped_companies = map_companies_to_tickers(entity_result.companies)
+    if mapped_companies:
+        direct.extend(mapped_companies)
+        reasons.append("根据公司名称映射到股票代码：" + ", ".join(mapped_companies))
 
     mapped_etfs = map_topics_to_etfs(entity_result.topics)
     if mapped_etfs:
@@ -49,25 +59,18 @@ def link_known_entities(entity_result: EntityResult) -> TickerLinks:
         related.extend(mapped_etfs)
         reasons.append("根据行业主题关联到 ETF：" + ", ".join(mapped_etfs))
 
-    if "Elon Musk" in persons or "Tesla" in companies or "TSLA" in tickers:
-        direct.append("TSLA")
-        related.extend(["ARKK", "QQQ"])
-        etfs.extend(["ARKK", "QQQ"])
-        reasons.append("识别到 Elon Musk / Tesla / TSLA，关联 Tesla 及成长科技 ETF。")
-
-    if "Jensen Huang" in persons or "Nvidia" in companies or "NVDA" in tickers:
-        direct.append("NVDA")
-        related.extend(["AMD", "TSM", "SMH", "QQQ"])
-        etfs.extend(["SMH", "QQQ"])
-        reasons.append("识别到 Jensen Huang / Nvidia / NVDA，关联半导体产业链。")
-
-    if "Sam Altman" in persons or "OpenAI" in companies or "Microsoft" in companies:
-        direct.append("MSFT")
-        related.extend(["NVDA", "GOOG", "QQQ"])
-        etfs.extend(["QQQ"])
-        reasons.append(
-            "识别到 Sam Altman / OpenAI / Microsoft，关联 AI 基础设施与云计算。"
-        )
+    all_direct = list(set(direct))
+    for ticker in all_direct:
+        peer_related, peer_etfs = get_sector_peers(ticker)
+        if peer_related:
+            related.extend(peer_related)
+        if peer_etfs:
+            etfs.extend(peer_etfs)
+            related.extend(peer_etfs)
+        if peer_related or peer_etfs:
+            peers = peer_related + peer_etfs
+            if peers:
+                reasons.append(f"{ticker} 所属板块关联：{', '.join(peers[:6])}")
 
     return TickerLinks(
         direct_tickers=_dedupe(direct),

@@ -108,11 +108,6 @@ def _rank_one(item: NewsItem, query: str, requested_tickers: set[str]) -> Ranked
             score += penalty
             reasons.append(f"noise={term}")
 
-    source_bonus = _source_weight(item.source)
-    score += source_bonus
-    if source_bonus:
-        reasons.append(f"source_weight={source_bonus:.1f}")
-
     fresh = _freshness_bonus(item.published_at)
     score += fresh
     reasons.append(f"freshness={fresh:.1f}")

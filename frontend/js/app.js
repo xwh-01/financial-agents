@@ -796,8 +796,8 @@ var App = (function () {
           (cat !== "自定义关注" && !search && presets.length ? '<button class="btn secondary sm" style="margin-bottom:12px" onclick="App.addCategory(\'' + esc(cat) + '\')">添加本分类全部 ' + presets.length + ' 项</button>' : ""),
           chips,
 
-          '<collapsible><div class="head" onclick="this.parentElement.classList.toggle(\'open\')">已关注 ' + _currentItems.length + ' 项</div><div class="body">' + currentHtml + '</div></collapsible>',
-          '<collapsible><div class="head" onclick="this.parentElement.classList.toggle(\'open\')">添加自定义关注项</div><div class="body"><p class="form-hint" style="margin-bottom:8px">预设里找不到时，可以手动添加关键词。</p>' + customForm + '</div></collapsible>',
+          '<collapsible><div class="head">已关注 ' + _currentItems.length + ' 项</div><div class="body">' + currentHtml + '</div></collapsible>',
+          '<collapsible><div class="head">添加自定义关注项</div><div class="body"><p class="form-hint" style="margin-bottom:8px">预设里找不到时，可以手动添加关键词。</p>' + customForm + '</div></collapsible>',
 
           '</div></div>',
         ].join("");
@@ -1104,6 +1104,60 @@ var App = (function () {
   }
 
   /* ── Report Detail ── */
+  function fmtMs(ms) {
+    if (ms === null || ms === undefined) return "-";
+    if (ms < 1000) return Math.round(ms) + " ms";
+    return (ms / 1000).toFixed(ms < 10000 ? 2 : 1) + " s";
+  }
+
+  function renderExecTrace(traceData) {
+    if (!traceData || !traceData.trace) return "";
+    var steps = traceData.steps || [];
+    var apiCalls = traceData.api_calls || [];
+    var maxMs = 1;
+    steps.forEach(function (s) { if ((s.duration_ms || 0) > maxMs) maxMs = s.duration_ms; });
+    var totalMs = traceData.trace.total_duration_ms;
+
+    var rows = steps.map(function (s) {
+      var ms = s.duration_ms || 0;
+      var failed = s.status === "failed";
+      var skipped = s.metadata && s.metadata.skipped;
+      var pct = Math.max(2, Math.round((ms / maxMs) * 100));
+      var cls = failed ? " failed" : (skipped ? " skipped" : "");
+      var srcLine = "";
+      var cs = s.metadata && s.metadata.collect_stats;
+      if (cs) {
+        srcLine = '<div class="trace-src">来源：company_rss <strong>' + (cs.company_rss || 0) +
+          '</strong> · market_rss <strong>' + (cs.market_rss || 0) +
+          '</strong> · marketaux <strong>' + (cs.marketaux || 0) +
+          '</strong> · 原始 <strong>' + (cs.raw_candidate_count || 0) +
+          '</strong> → 候选池 <strong>' + (cs.candidate_pool || 0) + '</strong></div>';
+      }
+      return '<div class="trace-row">' +
+          '<span class="trace-name">' + esc(s.step_name) + (skipped ? " (skip)" : "") + '</span>' +
+          '<span class="trace-bar-track"><span class="trace-bar' + cls + '" style="width:' + pct + '%"></span></span>' +
+          '<span class="trace-ms' + (failed ? " failed" : "") + '">' + fmtMs(ms) + '</span>' +
+        '</div>' +
+        srcLine +
+        (failed && s.error ? '<div class="trace-err">&#9888; ' + esc(s.error) + '</div>' : "");
+    }).join("");
+
+    var apiHtml = apiCalls.length
+      ? '<div class="apicall-grid">' + apiCalls.map(function (a) {
+          return '<div class="apicall-item"><div class="apicall-provider">' + esc(a.provider) + '</div>' +
+            '<div class="apicall-nums"><span>逻辑调用 <strong>' + (a.logical_calls || 0) + '</strong></span>' +
+            '<span>HTTP 请求 <strong>' + (a.http_attempts || 0) + '</strong></span></div></div>';
+        }).join("") + '</div>'
+      : '<div class="empty-state" style="min-height:60px">本次运行没有记录外部 API 调用（可能未配置 key 或走的是无 trace 路径）。</div>';
+
+    return [
+      '<div class="section-title">执行追踪 · 耗时与错误' + (totalMs !== null && totalMs !== undefined ? '（总计 ' + fmtMs(totalMs) + '）' : '') + '</div>',
+      '<div class="card" style="margin-bottom:16px"><div class="card-pad"><div class="trace-list">' + (rows || '<div class="empty-state" style="min-height:60px">没有节点步骤记录。</div>') + '</div></div></div>',
+      '<div class="section-title">外部 API 调用次数</div>',
+      '<div class="card" style="margin-bottom:16px"><div class="card-pad">' + apiHtml + '</div></div>',
+    ].join("");
+  }
+
   window.reportDetail = async function () {
     showError("");
     var parts = (location.hash || "#").replace("#report-detail/", "").split("/");
@@ -1115,6 +1169,8 @@ var App = (function () {
       var cs = rp.compliance_status || "safe";
       var disclaimer = report.disclaimer || rp.disclaimer || "";
       var items = await API.reports.items(reportId) || [];
+      var traceData = null;
+      try { traceData = await API.reports.trace(reportId); } catch (_) { traceData = null; }
       var marketSignals = rp.market_signals || [];
       var reportText = rp.report || rp.summary || "暂无报告内容。";
       var generatedAt = rp.generated_at || rp.created_at;
@@ -1166,6 +1222,8 @@ var App = (function () {
         items.length
           ? '<div class="source-list">' + items.map(renderSourceCard).join("") + '</div>'
           : '<div class="empty-state" style="min-height:80px">这份报告没有结构化新闻来源。</div>',
+
+        renderExecTrace(traceData),
       ].join("");
     } catch (e) { showError("加载失败：" + e.message); if (document.querySelector(".page-body")) document.querySelector(".page-body").innerHTML = ''; }
   };
@@ -1185,6 +1243,7 @@ var App = (function () {
     addBundle: window.addBundle,
     addCategory: window.addCategory,
     clearPending: window.clearPending,
+    doCustomAdd: window.doCustomAdd,
     batchAddToWatchlist: window.batchAddToWatchlist,
     searchPresets: window.searchPresets,
     catClick: window.catClick,

@@ -10,6 +10,18 @@ logger = logging.getLogger(__name__)
 
 
 async def chat_completion(system_prompt: str, user_prompt: str) -> str:
+    """
+    Send a chat completion request to the configured LLM provider.
+
+    Uses OpenAI-compatible API format. Retries on 429 (rate limit) and 5xx errors
+    with exponential backoff. Raises ExternalServiceError on 4xx (except 429),
+    JSON parse failures, or exhaustion of all retries.
+
+    Configuration is drawn from settings: llm_api_key, llm_base_url, llm_model,
+    llm_timeout_seconds, llm_retry_attempts, llm_retry_backoff_seconds.
+    Temperature is fixed at 0.2 for deterministic output suitable for structured
+    entity/event/risk extraction and report generation.
+    """
     if not settings.llm_api_key:
         raise ExternalServiceNotConfigured("LLM_API_KEY is not configured.")
 

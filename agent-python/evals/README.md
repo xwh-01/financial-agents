@@ -1,37 +1,41 @@
 # Ranker Quality Evaluation
 
-Offline evaluation of the Market Pulse news ranker using a labeled dataset.
+Offline evaluation of the Market Pulse news ranker Layer 1 (coarse_filter) using labeled mock data.
 
 ## Dataset
 
-`ranker_eval_dataset.jsonl` — one JSON sample per line, 56+ labeled news items across 5 queries.
+`ranker_eval_dataset.jsonl` — 119 labeled samples across 9 query groups (10 are filtered by hard-filter, leaving 109 effective samples).
 
-### Label Definitions
+## Label Definitions
 
 | label | meaning |
 |-------|---------|
-| `important` | Highly relevant to query, directly impacts the market |
-| `related` | Relevant to query, worth attention |
+| `important` | Highly relevant to the query and should appear near the top |
+| `related` | Relevant to the query and worth attention |
 | `weakly_related` | Tangentially related, not counted toward precision |
-| `irrelevant` | Not relevant, should be filtered by the ranker |
+| `irrelevant` | Not relevant and should be filtered or ranked low |
 
-### Queries Covered
+## Queries Covered
 
-- NVIDIA AI chips (12 samples)
-- Fed interest rate (11 samples)
-- gold market (11 samples)
-- Apple earnings (11 samples)
-- oil prices (11 samples)
+- `NVDA earnings AI chips` (free text, Chinese title)
+- `Fed rate policy inflation` (free text, Chinese title)
+- `gold precious metals safe haven` (free text, Chinese title)
+- `tickers: NVDA, AMD\ntopics: data center, AI chips` (structured multi-intent)
+- `oil crude energy OPEC supply` (free text)
+- `Tesla robotaxi margins deliveries` (free text, Chinese title)
+- `banks financial credit risk earnings` (free text, Chinese title)
+- `semiconductor chip export China regulation` (free text)
+- `macro: Fed rates, CPI\ncommodity: oil, gold` (structured multi-intent)
 
-Each query includes boundary cases: ticker hits with weak semantics, authority mismatch, keyword ambiguity (e.g. "Apple" fruit vs stock, "gold" jewelry vs price), and strong/weak negatives.
+Each query includes: Chinese titles, real-world style long headlines with ticker symbols, edge cases (empty titles, short content, missing URLs), diverse distractor types (crypto spam, Telegram scams, SEO promotions, gaming, food, fashion, pets, sports).
 
 ## Evaluation Metrics
 
 - **Precision@5 / @10**: proportion of top 5/10 with label `important` or `related`
 - **Important Recall@10**: how many `important` samples appear in top 10
 - **Irrelevant Rate@10**: proportion of top 10 with label `irrelevant`
-- **False Positives**: non-relevant items entering top 5
-- **Missed Important**: `important` items absent from top 10
+
+Note: this evaluates Layer 1 (coarse_filter) only. Layers 2 (embedding) and 3 (LLM re-rank) require API integration and are not tested offline.
 
 ## Running
 
@@ -45,21 +49,5 @@ python evals/ranker_eval.py
 | file | format | content |
 |------|--------|---------|
 | terminal | text | per-query metrics, top ranked, warnings |
-| `evals/ranker_eval_report.json` | JSON | structured report with all scores, reasons |
-| `evals/ranker_eval_summary.csv` | CSV | one row per query, suitable for spreadsheets |
-
-## Threshold Warnings
-
-The script prints warnings (but does **not** exit) when:
-- `precision_at_5 < 0.6`
-- `irrelevant_rate_at_10 > 0.3`
-- `important_recall_at_10 < 0.8`
-
-Warnings are also written to the JSON report.
-
-## Notes
-
-- This is a small-scale offline relevance evaluation (~56 samples), not a market prediction benchmark.
-- False positives and missed items can be used to iteratively improve ranker rules.
-- Do not introduce ML models or vector databases for this eval.
-- Labeled data is manually curated; update it when ranker behavior changes.
+| `evals/ranker_eval_report.json` | JSON | structured report with all scores |
+| `evals/ranker_eval_summary.csv` | CSV | one row per query |

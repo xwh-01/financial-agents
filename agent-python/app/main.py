@@ -42,6 +42,14 @@ app.include_router(report_jobs_router, tags=["report_jobs"])
 
 @app.on_event("startup")
 def startup() -> None:
+    """
+    Application startup hook.
+
+    1. Validates that security settings (JWT secret, etc.) are not using dev defaults
+       in non-development environments.
+    2. Initializes the SQLite database and applies any pending schema migrations.
+    3. Starts the daily report job scheduler background task (if enabled).
+    """
     validate_security_settings()
     init_db()
     start_scheduler()
